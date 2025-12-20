@@ -143,6 +143,59 @@ TEST_F(BookEngineTest, RemoveSymbol) {
     EXPECT_NE(engine.get("ETH/USD"), nullptr);
 }
 
+TEST_F(BookEngineTest, MultipleIncrementalUpdates) {
+    // Initial snapshot
+    auto bids = make_bids({{50000.0, 1.0}, {49999.0, 2.0}});
+    auto asks = make_asks({{50001.0, 1.0}});
+    engine.apply("BTC/USD", bids, asks, true);
+    
+    // First update
+    auto upd1 = make_bids({{49998.0, 1.5}});
+    engine.apply("BTC/USD", upd1, {}, false);
+    
+    // Second update
+    auto upd2 = make_bids({{49999.0, 0.0}}); // Remove
+    engine.apply("BTC/USD", upd2, {}, false);
+    
+    auto* book = engine.get("BTC/USD");
+    ASSERT_NE(book, nullptr);
+    EXPECT_EQ(book->bids.size(), 2); // 50000.0 and 49998.0
+}
+
+TEST_F(BookEngineTest, ChecksumValidation) {
+    auto bids = make_bids({{50000.0, 1.0}});
+    auto asks = make_asks({{50001.0, 1.0}});
+    
+    // Apply snapshot
+    engine.apply("BTC/USD", bids, asks, true);
+    
+    auto* book = engine.get("BTC/USD");
+    ASSERT_NE(book, nullptr);
+    
+    // Calculate checksum
+    uint32_t checksum = BookEngine::calculate_checksum(*book);
+    EXPECT_NE(checksum, 0);
+    
+    // Apply with correct checksum
+    bool valid = engine.apply("BTC/USD", bids, asks, true, checksum);
+    EXPECT_TRUE(valid);
+}
+
+TEST_F(BookEngineTest, EmptyUpdate) {
+    auto bids = make_bids({{50000.0, 1.0}});
+    auto asks = make_asks({{50001.0, 1.0}});
+    engine.apply("BTC/USD", bids, asks, true);
+    
+    // Empty update (should not change book)
+    std::vector<PriceLevel> empty;
+    engine.apply("BTC/USD", empty, empty, false);
+    
+    auto* book = engine.get("BTC/USD");
+    ASSERT_NE(book, nullptr);
+    EXPECT_EQ(book->bids.size(), 1);
+    EXPECT_EQ(book->asks.size(), 1);
+}
+
 int main(int argc, char** argv) {
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();

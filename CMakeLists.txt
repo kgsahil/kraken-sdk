@@ -106,13 +106,31 @@ if(KRAKEN_BUILD_TESTS)
     )
     FetchContent_MakeAvailable(googletest)
     
-    add_executable(test_strategies tests/test_strategies.cpp)
-    target_link_libraries(test_strategies PRIVATE kraken GTest::gtest_main)
-    add_test(NAME test_strategies COMMAND test_strategies)
+    # Test executables - all need access to src/ for internal headers
+    function(add_kraken_test name)
+        add_executable(${name} tests/${name}.cpp)
+        target_link_libraries(${name} PRIVATE kraken GTest::gtest_main)
+        target_include_directories(${name} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${SPSCQueue_SOURCE_DIR}/include
+        )
+        add_test(NAME ${name} COMMAND ${name})
+    endfunction()
     
-    add_executable(test_book_checksum tests/test_book_checksum.cpp)
-    target_link_libraries(test_book_checksum PRIVATE kraken GTest::gtest_main)
-    add_test(NAME test_book_checksum COMMAND test_book_checksum)
+    add_kraken_test(test_strategies)
+    add_kraken_test(test_book_checksum)
+    add_kraken_test(test_connection)
+    add_kraken_test(test_parser)
+    add_kraken_test(test_client)
+    add_kraken_test(test_config)
+    add_kraken_test(test_subscription)
+    add_kraken_test(test_error_handling)
+    add_kraken_test(test_metrics)
+    add_kraken_test(test_integration)
+    add_kraken_test(test_message_flow)
+    add_kraken_test(test_thread_safety)
+    add_kraken_test(test_edge_cases)
+    add_kraken_test(test_exception_safety)
 endif()
 
 # Installation

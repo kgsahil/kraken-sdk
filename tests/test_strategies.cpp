@@ -112,6 +112,58 @@ TEST_F(VolumeSpikeTest, DetectsSpike) {
     EXPECT_TRUE(spike->check(make_ticker("BTC/USD", 300.0)));
 }
 
+TEST_F(VolumeSpikeTest, NoSpikeWithNormalVolume) {
+    auto spike = VolumeSpike::Builder()
+        .symbols({"BTC/USD"})
+        .multiplier(2.0)
+        .lookback(10)
+        .build();
+    
+    // Build history
+    for (int i = 0; i < 10; ++i) {
+        spike->check(make_ticker("BTC/USD", 100.0));
+    }
+    
+    // Normal volume (1.5x - below 2x threshold)
+    EXPECT_FALSE(spike->check(make_ticker("BTC/USD", 150.0)));
+}
+
+TEST_F(VolumeSpikeTest, MultipleSymbols) {
+    auto spike = VolumeSpike::Builder()
+        .symbols({"BTC/USD", "ETH/USD"})
+        .multiplier(2.0)
+        .lookback(5)
+        .build();
+    
+    // Build history for both symbols
+    for (int i = 0; i < 5; ++i) {
+        spike->check(make_ticker("BTC/USD", 100.0));
+        spike->check(make_ticker("ETH/USD", 50.0));
+    }
+    
+    // Spike on BTC
+    EXPECT_TRUE(spike->check(make_ticker("BTC/USD", 250.0)));
+    
+    // Spike on ETH
+    EXPECT_TRUE(spike->check(make_ticker("ETH/USD", 120.0)));
+}
+
+TEST_F(VolumeSpikeTest, IgnoresOtherSymbols) {
+    auto spike = VolumeSpike::Builder()
+        .symbols({"BTC/USD"})
+        .multiplier(2.0)
+        .lookback(5)
+        .build();
+    
+    // Build history
+    for (int i = 0; i < 5; ++i) {
+        spike->check(make_ticker("BTC/USD", 100.0));
+    }
+    
+    // Different symbol - should not affect
+    EXPECT_FALSE(spike->check(make_ticker("ETH/USD", 1000.0)));
+}
+
 class SpreadAlertTest : public ::testing::Test {
 protected:
     Ticker make_ticker(double bid, double ask) {

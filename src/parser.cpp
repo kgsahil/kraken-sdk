@@ -5,6 +5,7 @@
 #include <rapidjson/stringbuffer.h>
 
 #include <stdexcept>
+#include <cstring>
 
 namespace kraken {
 
@@ -169,6 +170,9 @@ Message parse_message(const std::string& raw_json) {
     }
     
     const rapidjson::Value& data_arr = doc["data"];
+    if (data_arr.Size() == 0) {
+        return msg;  // Empty data array
+    }
     const rapidjson::Value& data = data_arr[0];
     std::string symbol = get_string(data, "symbol");
     
@@ -193,69 +197,53 @@ Message parse_message(const std::string& raw_json) {
     return msg;
 }
 
+// Helper to build subscription messages (reduces code duplication)
+namespace {
+    std::string build_subscription_message(const char* method, Channel channel,
+                                           const std::vector<std::string>& symbols,
+                                           int depth = 0) {
+        rapidjson::StringBuffer sb;
+        rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
+        
+        writer.StartObject();
+        writer.Key("method");
+        writer.String(method);
+        
+        writer.Key("params");
+        writer.StartObject();
+        
+        writer.Key("channel");
+        writer.String(to_string(channel));
+        
+        writer.Key("symbol");
+        writer.StartArray();
+        for (const auto& sym : symbols) {
+            writer.String(sym.c_str());
+        }
+        writer.EndArray();
+        
+        // Add depth for book channel (subscribe only)
+        if (std::strcmp(method, "subscribe") == 0 && channel == Channel::Book && depth > 0) {
+            writer.Key("depth");
+            writer.Int(depth);
+        }
+        
+        writer.EndObject();  // params
+        writer.EndObject();  // root
+        
+        return sb.GetString();
+    }
+}
+
 std::string build_subscribe_message(Channel channel, 
                                      const std::vector<std::string>& symbols,
                                      int depth) {
-    rapidjson::StringBuffer sb;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-    
-    writer.StartObject();
-    
-    writer.Key("method");
-    writer.String("subscribe");
-    
-    writer.Key("params");
-    writer.StartObject();
-    
-    writer.Key("channel");
-    writer.String(to_string(channel));
-    
-    writer.Key("symbol");
-    writer.StartArray();
-    for (const auto& sym : symbols) {
-        writer.String(sym.c_str());
-    }
-    writer.EndArray();
-    
-    // Add depth for book channel
-    if (channel == Channel::Book && depth > 0) {
-        writer.Key("depth");
-        writer.Int(depth);
-    }
-    
-    writer.EndObject();  // params
-    writer.EndObject();  // root
-    
-    return sb.GetString();
+    return build_subscription_message("subscribe", channel, symbols, depth);
 }
 
 std::string build_unsubscribe_message(Channel channel,
                                        const std::vector<std::string>& symbols) {
-    rapidjson::StringBuffer sb;
-    rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
-    
-    writer.StartObject();
-    
-    writer.Key("method");
-    writer.String("unsubscribe");
-    
-    writer.Key("params");
-    writer.StartObject();
-    
-    writer.Key("channel");
-    writer.String(to_string(channel));
-    
-    writer.Key("symbol");
-    writer.StartArray();
-    for (const auto& sym : symbols) {
-        writer.String(sym.c_str());
-    }
-    writer.EndArray();
-    
-    writer.EndObject();  // params
-    writer.EndObject();  // root
-    
-    return sb.GetString();
+    return build_subscription_message("unsubscribe", channel, symbols, 0);
 }
 
 } // namespace kraken

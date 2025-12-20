@@ -44,7 +44,8 @@ enum class ErrorCode {
     QueueOverflow,
     ChecksumMismatch,
     ParseError,
-    Timeout
+    Timeout,
+    CallbackError  // User callback threw an exception
 };
 
 /// Connection state

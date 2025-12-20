@@ -70,32 +70,38 @@ void Connection::connect() {
         std::string host_header = host_ + ":" + std::to_string(ep.port());
         ws_->handshake(host_header, path_);
         
-        is_open_ = true;
+        is_open_.store(true);
         
     } catch (const beast::system_error& e) {
         throw ConnectionError(std::string("Connection failed: ") + e.what());
     } catch (const std::exception& e) {
+        // Catch-all for any other exceptions
         throw ConnectionError(std::string("Connection failed: ") + e.what());
     }
 }
 
 void Connection::close() {
-    if (!ws_ || !is_open_) return;
+    if (!ws_) return;
     
-    is_open_ = false;
+    // Set flag first to prevent other operations
+    bool was_open = is_open_.exchange(false);
+    if (!was_open) return;  // Already closed
     
     try {
-        // Graceful close
-        beast::error_code ec;
-        ws_->close(websocket::close_code::normal, ec);
-        // Ignore errors during close
+        // Check if WebSocket is actually open before trying to close
+        if (ws_->is_open()) {
+            beast::error_code ec;
+            ws_->close(websocket::close_code::normal, ec);
+            // Ignore errors during close (connection might already be closed)
+        }
     } catch (...) {
-        // Ignore
+        // Ignore all exceptions during close
+        // WebSocket might be in various states (closing, closed, etc.)
     }
 }
 
 bool Connection::is_open() const {
-    return is_open_ && ws_ && ws_->is_open();
+    return is_open_.load() && ws_ && ws_->is_open();
 }
 
 void Connection::send(const std::string& message) {
@@ -108,7 +114,7 @@ void Connection::send(const std::string& message) {
     try {
         ws_->write(net::buffer(message));
     } catch (const beast::system_error& e) {
-        is_open_ = false;
+        is_open_.store(false);
         throw ConnectionError(std::string("Send failed: ") + e.what());
     }
 }
@@ -126,10 +132,10 @@ std::string Connection::receive() {
         
     } catch (const beast::system_error& e) {
         if (e.code() == websocket::error::closed) {
-            is_open_ = false;
+            is_open_.store(false);
             return "";
         }
-        is_open_ = false;
+        is_open_.store(false);
         throw ConnectionError(std::string("Receive failed: ") + e.what());
     }
 }

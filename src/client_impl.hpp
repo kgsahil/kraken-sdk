@@ -153,6 +153,23 @@ private:
     void handle_reconnect();
     void send_pending_subscriptions();
     
+    // Helper methods to reduce code duplication
+    void safe_invoke_error_callback(ErrorCode code, const std::string& message, 
+                                     const std::string& details = "");
+    void safe_send_message(const std::string& message);
+    
+    // Template helper for safe callback invocation (defined inline)
+    template<typename Callback, typename... Args>
+    void safe_invoke_callback(Callback&& callback, Args&&... args) {
+        try {
+            callback(std::forward<Args>(args)...);
+        } catch (const std::exception& e) {
+            // Callback exception - notify via error callback
+            safe_invoke_error_callback(ErrorCode::CallbackError, 
+                                      std::string("Callback exception: ") + e.what(), "");
+        }
+    }
+    
     // Configuration
     ClientConfig config_;
     

@@ -143,25 +143,38 @@ void BookEngine::remove(const std::string& symbol) {
     book_cache_.erase(symbol);
 }
 
+// Helper to apply price level updates to a map (reduces code duplication)
+namespace {
+    template<typename MapType>
+    void apply_level_updates(MapType& map, const std::vector<PriceLevel>& levels) {
+        for (const auto& level : levels) {
+            if (level.quantity == 0.0) {
+                map.erase(level.price);  // O(log n) removal
+            } else {
+                map[level.price] = level.quantity;  // O(log n) insert/update
+            }
+        }
+    }
+}
+
 void BookEngine::apply_updates(InternalBook& book,
                                 const std::vector<PriceLevel>& bids,
                                 const std::vector<PriceLevel>& asks) {
-    // Apply bid updates - O(log n) per level
-    for (const auto& level : bids) {
-        if (level.quantity == 0.0) {
-            book.bids.erase(level.price);  // O(log n) removal
-        } else {
-            book.bids[level.price] = level.quantity;  // O(log n) insert/update
+    // Apply updates - O(log n) per level
+    apply_level_updates(book.bids, bids);
+    apply_level_updates(book.asks, asks);
+}
+
+// Helper to convert map to vector (reduces code duplication)
+namespace {
+    template<typename MapType>
+    std::vector<PriceLevel> map_to_vector(const MapType& map) {
+        std::vector<PriceLevel> vec;
+        vec.reserve(map.size());
+        for (const auto& pair : map) {
+            vec.push_back({pair.first, pair.second});
         }
-    }
-    
-    // Apply ask updates - O(log n) per level
-    for (const auto& level : asks) {
-        if (level.quantity == 0.0) {
-            book.asks.erase(level.price);  // O(log n) removal
-        } else {
-            book.asks[level.price] = level.quantity;  // O(log n) insert/update
-        }
+        return vec;
     }
 }
 
@@ -172,17 +185,18 @@ OrderBook BookEngine::to_order_book(const InternalBook& ibook) const {
     book.is_valid = ibook.is_valid;
     
     // Convert maps to vectors (already sorted by map ordering)
-    book.bids.reserve(ibook.bids.size());
-    for (const auto& pair : ibook.bids) {
-        book.bids.push_back({pair.first, pair.second});
-    }
-    
-    book.asks.reserve(ibook.asks.size());
-    for (const auto& pair : ibook.asks) {
-        book.asks.push_back({pair.first, pair.second});
-    }
+    book.bids = map_to_vector(ibook.bids);
+    book.asks = map_to_vector(ibook.asks);
     
     return book;
+}
+
+// Helper to format price level for checksum (reduces duplication)
+namespace {
+    void append_level_to_checksum(std::string& data, const PriceLevel& level) {
+        data += format_for_checksum(level.price);
+        data += format_for_checksum(level.quantity);
+    }
 }
 
 uint32_t BookEngine::calculate_checksum(const OrderBook& book) {
@@ -195,14 +209,12 @@ uint32_t BookEngine::calculate_checksum(const OrderBook& book) {
     for (size_t i = 0; i < levels; ++i) {
         // Ask
         if (i < book.asks.size()) {
-            data += format_for_checksum(book.asks[i].price);
-            data += format_for_checksum(book.asks[i].quantity);
+            append_level_to_checksum(data, book.asks[i]);
         }
         
         // Bid
         if (i < book.bids.size()) {
-            data += format_for_checksum(book.bids[i].price);
-            data += format_for_checksum(book.bids[i].quantity);
+            append_level_to_checksum(data, book.bids[i]);
         }
     }
     

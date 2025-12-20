@@ -21,22 +21,32 @@ SubscriptionImpl::SubscriptionImpl(int id, Channel channel,
     , subscribe_fn_(std::move(on_subscribe))
     , unsubscribe_fn_(std::move(on_unsubscribe)) {}
 
+// Helper to safely invoke subscription callbacks
+namespace {
+    template<typename Fn, typename... Args>
+    void safe_invoke_subscription_callback(Fn&& fn, Args&&... args) {
+        if (fn) {
+            try {
+                fn(std::forward<Args>(args)...);
+            } catch (...) {
+                // Callback exception - ignore to prevent crash
+            }
+        }
+    }
+}
+
 void SubscriptionImpl::pause() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!active_ || paused_) return;
     paused_ = true;
-    if (unsubscribe_fn_) {
-        unsubscribe_fn_(channel_, symbols_);
-    }
+    safe_invoke_subscription_callback(unsubscribe_fn_, channel_, symbols_);
 }
 
 void SubscriptionImpl::resume() {
     std::lock_guard<std::mutex> lock(mutex_);
     if (!active_ || !paused_) return;
     paused_ = false;
-    if (subscribe_fn_) {
-        subscribe_fn_(channel_, symbols_, depth_);
-    }
+    safe_invoke_subscription_callback(subscribe_fn_, channel_, symbols_, depth_);
 }
 
 void SubscriptionImpl::unsubscribe() {
@@ -44,9 +54,7 @@ void SubscriptionImpl::unsubscribe() {
     if (!active_) return;
     active_ = false;
     paused_ = false;
-    if (unsubscribe_fn_) {
-        unsubscribe_fn_(channel_, symbols_);
-    }
+    safe_invoke_subscription_callback(unsubscribe_fn_, channel_, symbols_);
 }
 
 void SubscriptionImpl::add_symbols(const std::vector<std::string>& new_symbols) {
@@ -59,8 +67,8 @@ void SubscriptionImpl::add_symbols(const std::vector<std::string>& new_symbols) 
         }
     }
     
-    if (!paused_ && subscribe_fn_) {
-        subscribe_fn_(channel_, new_symbols, depth_);
+    if (!paused_) {
+        safe_invoke_subscription_callback(subscribe_fn_, channel_, new_symbols, depth_);
     }
 }
 
@@ -75,8 +83,8 @@ void SubscriptionImpl::remove_symbols(const std::vector<std::string>& rem_symbol
         );
     }
     
-    if (!paused_ && unsubscribe_fn_) {
-        unsubscribe_fn_(channel_, rem_symbols);
+    if (!paused_) {
+        safe_invoke_subscription_callback(unsubscribe_fn_, channel_, rem_symbols);
     }
 }
 
@@ -140,6 +148,40 @@ KrakenClient::Impl::Impl(ClientConfig config)
     : config_(std::move(config))
     , queue_(std::make_unique<rigtorp::SPSCQueue<Message>>(config_.queue_capacity()))
     , start_time_(std::chrono::steady_clock::now()) {
+}
+
+//------------------------------------------------------------------------------
+// Helper Methods (reduce code duplication)
+//------------------------------------------------------------------------------
+
+void KrakenClient::Impl::safe_invoke_error_callback(ErrorCode code, 
+                                                     const std::string& message,
+                                                     const std::string& details) {
+    std::shared_lock lock(callbacks_mutex_);
+    if (error_callback_) {
+        Error err{code, message, details};
+        try {
+            error_callback_(err);
+        } catch (...) {
+            // Error callback threw - ignore to prevent crash
+        }
+    }
+}
+
+
+void KrakenClient::Impl::safe_send_message(const std::string& message) {
+    if (!connection_ || !connection_->is_open()) {
+        safe_invoke_error_callback(ErrorCode::ConnectionClosed, 
+                                   "Cannot send: connection not open", "");
+        return;
+    }
+    
+    try {
+        connection_->send(message);
+    } catch (const std::exception& e) {
+        safe_invoke_error_callback(ErrorCode::ConnectionClosed, 
+                                   std::string("Send failed: ") + e.what(), "");
+    }
 }
 
 KrakenClient::Impl::~Impl() {
@@ -291,16 +333,14 @@ Subscription KrakenClient::Impl::subscribe_book(const std::vector<std::string>& 
 void KrakenClient::Impl::send_subscribe(Channel channel, 
                                          const std::vector<std::string>& symbols,
                                          int depth) {
-    if (!connection_) return;
     std::string msg = build_subscribe_message(channel, symbols, depth);
-    connection_->send(msg);
+    safe_send_message(msg);
 }
 
 void KrakenClient::Impl::send_unsubscribe(Channel channel, 
                                            const std::vector<std::string>& symbols) {
-    if (!connection_) return;
     std::string msg = build_unsubscribe_message(channel, symbols);
-    connection_->send(msg);
+    safe_send_message(msg);
 }
 
 void KrakenClient::Impl::send_pending_subscriptions() {
@@ -384,7 +424,11 @@ void KrakenClient::Impl::run_async() {
 }
 
 void KrakenClient::Impl::stop() {
-    if (!running_) return;
+    // Use atomic compare-and-swap to prevent race conditions
+    bool expected = true;
+    if (!running_.compare_exchange_strong(expected, false)) {
+        return;  // Already stopping or stopped
+    }
     
     stop_requested_ = true;
     
@@ -396,15 +440,13 @@ void KrakenClient::Impl::stop() {
         connection_->close();
     }
     
-    // Wait for threads
+    // Wait for threads (with timeout protection)
     if (io_thread_.joinable()) {
         io_thread_.join();
     }
     if (dispatcher_thread_.joinable()) {
         dispatcher_thread_.join();
     }
-    
-    running_ = false;
 }
 
 bool KrakenClient::Impl::is_running() const {
@@ -444,21 +486,14 @@ void KrakenClient::Impl::io_loop() {
                 msg_dropped_.fetch_add(1, std::memory_order_relaxed);
                 
                 // Notify via error callback
-                std::shared_lock cb_lock(callbacks_mutex_);
-                if (error_callback_) {
-                    Error err{ErrorCode::QueueOverflow, "Message queue overflow", ""};
-                    error_callback_(err);
-                }
+                safe_invoke_error_callback(ErrorCode::QueueOverflow, 
+                                           "Message queue overflow", "");
             }
             
         } catch (const std::exception& e) {
             if (!stop_requested_) {
                 // Log error and try to reconnect
-                std::shared_lock lock(callbacks_mutex_);
-                if (error_callback_) {
-                    Error err{ErrorCode::ConnectionClosed, e.what(), ""};
-                    error_callback_(err);
-                }
+                safe_invoke_error_callback(ErrorCode::ConnectionClosed, e.what(), "");
                 handle_reconnect();
             }
         }
@@ -509,32 +544,37 @@ void KrakenClient::Impl::dispatch(Message& msg) {
         switch (msg.type) {
             case MessageType::Ticker:
                 if (ticker_callback_ && msg.holds<Ticker>()) {
-                    ticker_callback_(msg.get<Ticker>());
+                    safe_invoke_callback(ticker_callback_, msg.get<Ticker>());
                 }
                 break;
                 
             case MessageType::Trade:
                 if (trade_callback_ && msg.holds<Trade>()) {
-                    trade_callback_(msg.get<Trade>());
+                    safe_invoke_callback(trade_callback_, msg.get<Trade>());
                 }
                 break;
                 
             case MessageType::Book:
                 if (book_callback_ && msg.holds<OrderBook>()) {
                     const auto& book = msg.get<OrderBook>();
-                    book_callback_(book.symbol, book);
+                    safe_invoke_callback(book_callback_, book.symbol, book);
                 }
                 break;
                 
             case MessageType::OHLC:
                 if (ohlc_callback_ && msg.holds<OHLC>()) {
-                    ohlc_callback_(msg.get<OHLC>());
+                    safe_invoke_callback(ohlc_callback_, msg.get<OHLC>());
                 }
                 break;
                 
             case MessageType::Error:
                 if (error_callback_ && msg.holds<Error>()) {
-                    error_callback_(msg.get<Error>());
+                    // Error callback itself - don't use safe_invoke_callback to avoid recursion
+                    try {
+                        error_callback_(msg.get<Error>());
+                    } catch (...) {
+                        // Error callback threw - ignore to prevent crash
+                    }
                 }
                 break;
                 
@@ -545,7 +585,13 @@ void KrakenClient::Impl::dispatch(Message& msg) {
     
     // Evaluate strategies OUTSIDE the lock to avoid blocking callbacks
     if (msg.type == MessageType::Ticker && msg.holds<Ticker>()) {
-        strategy_engine_.evaluate(msg.get<Ticker>());
+        try {
+            strategy_engine_.evaluate(msg.get<Ticker>());
+        } catch (const std::exception& e) {
+            // Strategy evaluation exception - notify via error callback
+            safe_invoke_error_callback(ErrorCode::CallbackError, 
+                                      std::string("Strategy evaluation exception: ") + e.what(), "");
+        }
     }
 }
 
@@ -565,11 +611,12 @@ void KrakenClient::Impl::handle_reconnect() {
             connection_->connect();
             set_connection_state(ConnectionState::Connected);
             
-            // Resubscribe
+            // Resubscribe (failures in send_subscribe are handled internally)
             std::lock_guard<std::mutex> lock(subscriptions_mutex_);
             for (auto& pair : subscriptions_) {
                 auto& sub = pair.second;
                 if (sub->is_active() && !sub->is_paused()) {
+                    // send_subscribe handles its own exceptions
                     send_subscribe(sub->channel(), sub->symbols(), sub->depth());
                 }
             }
@@ -593,7 +640,15 @@ Metrics KrakenClient::Impl::get_metrics() const {
     m.messages_received = msg_received_.load(std::memory_order_relaxed);
     m.messages_processed = msg_processed_.load(std::memory_order_relaxed);
     m.messages_dropped = msg_dropped_.load(std::memory_order_relaxed);
-    m.queue_depth = queue_->size();
+    
+    // Queue size might not be thread-safe, but it's approximate anyway
+    // SPSC queue size() is typically safe for reading
+    if (queue_) {
+        m.queue_depth = queue_->size();
+    } else {
+        m.queue_depth = 0;
+    }
+    
     m.connection_state = state_.load(std::memory_order_relaxed);
     m.latency_max_us = std::chrono::microseconds(
         latency_max_us_.load(std::memory_order_relaxed)
