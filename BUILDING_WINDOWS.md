@@ -67,9 +67,9 @@ cmake --build . --config Release
    cmake --build . -j4
    ```
 
-## Option 3: Using WSL (Linux environment on Windows)
+## Option 3: Using WSL (Recommended)
 
-See `BUILDING.md` for Linux instructions. This is often the easiest option if you're comfortable with Linux.
+WSL is often the easiest option. See [BUILDING.md](BUILDING.md) for Linux instructions.
 
 ## Quick Check: Verify CMakeLists.txt
 

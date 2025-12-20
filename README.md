@@ -479,9 +479,13 @@ enum class Channel {
 | Subscriptions (`subscribe`, `subscribe_book`) | ✅ Thread-safe |
 | Alert management (`add_alert`, `remove_alert`) | ✅ Thread-safe |
 | Connection queries (`is_connected`, `get_metrics`) | ✅ Thread-safe |
-| Event loop (`run`, `run_async`, `stop`) | ⚠️ Single thread |
+| `stop()` | ✅ Thread-safe (can call from any thread) |
+| `run()`, `run_async()` | ⚠️ Call once from single thread |
 
-**Note:** Callbacks are invoked on the dispatcher thread. If you need thread-safe callbacks, use synchronization primitives inside your callback functions.
+**Notes:**
+- `stop()` is thread-safe and can be called from signal handlers or other threads
+- `run()` and `run_async()` should only be called once - they start the event loop
+- Callbacks are invoked on the dispatcher thread. If your callbacks need thread safety, use synchronization primitives inside them
 
 ---
 
@@ -489,39 +493,15 @@ enum class Channel {
 
 ```
 kraken-sdk/
-├── include/kraken/
-│   ├── client.hpp          # Public API (PIMPL)
-│   ├── types.hpp           # Data types, enums
-│   ├── strategies.hpp      # Alert strategies
-│   ├── config.hpp          # Configuration builder
-│   ├── metrics.hpp         # Performance metrics
-│   ├── subscription.hpp    # Subscription handle
-│   ├── error.hpp           # Error types
-│   └── kraken.hpp          # Umbrella header
-├── src/
-│   ├── client_impl.cpp     # PIMPL implementation
-│   ├── connection.cpp      # WebSocket (Boost.Beast)
-│   ├── parser.cpp          # JSON parsing (RapidJSON)
-│   ├── book_engine.cpp     # Order book + CRC32
-│   ├── strategy_engine.cpp # Strategy evaluation
-│   └── subscription.cpp   # Subscription implementation
-├── examples/
-│   ├── quickstart.cpp      # Minimal example
-│   ├── strategies.cpp      # Strategy demo
-│   ├── dashboard.cpp       # Performance dashboard
-│   └── orderbook.cpp       # Order book example
-├── tools/
-│   └── benchmark.cpp       # Performance benchmark
-├── tests/
-│   ├── test_strategies.cpp
-│   └── test_book_checksum.cpp
-├── docs/
-│   ├── spsc-queue-design.md
-│   ├── strategy-engine-design.md
-│   └── future-enhancements.md
+├── include/kraken/     # Public API headers
+├── src/                # Implementation
+├── examples/           # Example programs
+├── tools/              # Benchmark tool
+├── tests/              # Unit tests
+├── docs/               # Technical documentation
 ├── CMakeLists.txt
-├── BUILDING.md
-└── README.md
+├── BUILDING.md         # Build instructions
+└── README.md           # This file
 ```
 
 ---
@@ -531,12 +511,6 @@ kraken-sdk/
 ```bash
 cd build
 ctest --output-on-failure
-```
-
-Or run individual tests:
-```bash
-./test_strategies
-./test_book_checksum
 ```
 
 ---
