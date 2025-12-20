@@ -1,0 +1,157 @@
+/// @file test_strategies.cpp
+/// @brief Unit tests for trading strategies
+
+#include <gtest/gtest.h>
+#include <kraken/strategies.hpp>
+
+using namespace kraken;
+
+class PriceAlertTest : public ::testing::Test {
+protected:
+    Ticker make_ticker(const std::string& symbol, double price) {
+        Ticker t;
+        t.symbol = symbol;
+        t.last = price;
+        t.bid = price - 0.5;
+        t.ask = price + 0.5;
+        return t;
+    }
+};
+
+TEST_F(PriceAlertTest, TriggersWhenAboveThreshold) {
+    auto alert = PriceAlert::Builder()
+        .symbol("BTC/USD")
+        .above(50000.0)
+        .build();
+    
+    // Below threshold - should not trigger
+    EXPECT_FALSE(alert->check(make_ticker("BTC/USD", 49000.0)));
+    
+    // Above threshold - should trigger
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 51000.0)));
+    
+    // Already fired - should not trigger again
+    EXPECT_FALSE(alert->check(make_ticker("BTC/USD", 52000.0)));
+}
+
+TEST_F(PriceAlertTest, TriggersWhenBelowThreshold) {
+    auto alert = PriceAlert::Builder()
+        .symbol("BTC/USD")
+        .below(40000.0)
+        .build();
+    
+    // Above threshold - should not trigger
+    EXPECT_FALSE(alert->check(make_ticker("BTC/USD", 45000.0)));
+    
+    // Below threshold - should trigger
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 39000.0)));
+}
+
+TEST_F(PriceAlertTest, ResetAllowsRetrigger) {
+    auto alert = PriceAlert::Builder()
+        .symbol("BTC/USD")
+        .above(50000.0)
+        .build();
+    
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 51000.0)));
+    EXPECT_FALSE(alert->check(make_ticker("BTC/USD", 52000.0)));
+    
+    alert->reset();
+    
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 53000.0)));
+}
+
+TEST_F(PriceAlertTest, IgnoresOtherSymbols) {
+    auto alert = PriceAlert::Builder()
+        .symbol("BTC/USD")
+        .above(50000.0)
+        .build();
+    
+    auto symbols = alert->symbols();
+    EXPECT_EQ(symbols.size(), 1);
+    EXPECT_EQ(symbols[0], "BTC/USD");
+}
+
+class VolumeSpikeTest : public ::testing::Test {
+protected:
+    Ticker make_ticker(const std::string& symbol, double volume) {
+        Ticker t;
+        t.symbol = symbol;
+        t.volume_24h = volume;
+        t.last = 50000.0;
+        return t;
+    }
+};
+
+TEST_F(VolumeSpikeTest, RequiresEnoughSamples) {
+    auto spike = VolumeSpike::Builder()
+        .symbols({"BTC/USD"})
+        .multiplier(2.0)
+        .lookback(10)
+        .build();
+    
+    // Not enough samples
+    for (int i = 0; i < 4; ++i) {
+        EXPECT_FALSE(spike->check(make_ticker("BTC/USD", 100.0)));
+    }
+}
+
+TEST_F(VolumeSpikeTest, DetectsSpike) {
+    auto spike = VolumeSpike::Builder()
+        .symbols({"BTC/USD"})
+        .multiplier(2.0)
+        .lookback(10)
+        .build();
+    
+    // Build up history with normal volume
+    for (int i = 0; i < 10; ++i) {
+        spike->check(make_ticker("BTC/USD", 100.0));
+    }
+    
+    // Spike! (3x normal should trigger 2x threshold)
+    EXPECT_TRUE(spike->check(make_ticker("BTC/USD", 300.0)));
+}
+
+class SpreadAlertTest : public ::testing::Test {
+protected:
+    Ticker make_ticker(double bid, double ask) {
+        Ticker t;
+        t.symbol = "BTC/USD";
+        t.bid = bid;
+        t.ask = ask;
+        t.last = (bid + ask) / 2.0;
+        return t;
+    }
+};
+
+TEST_F(SpreadAlertTest, TriggersWhenSpreadTooWide) {
+    auto alert = SpreadAlert::Builder()
+        .symbol("BTC/USD")
+        .max_spread(10.0)
+        .build();
+    
+    // Normal spread
+    EXPECT_FALSE(alert->check(make_ticker(50000.0, 50005.0)));
+    
+    // Wide spread
+    EXPECT_TRUE(alert->check(make_ticker(50000.0, 50015.0)));
+}
+
+TEST_F(SpreadAlertTest, TriggersWhenSpreadTooNarrow) {
+    auto alert = SpreadAlert::Builder()
+        .symbol("BTC/USD")
+        .min_spread(1.0)
+        .build();
+    
+    // Normal spread
+    EXPECT_FALSE(alert->check(make_ticker(50000.0, 50005.0)));
+    
+    // Too narrow (suspicious)
+    EXPECT_TRUE(alert->check(make_ticker(50000.0, 50000.5)));
+}
+
+int main(int argc, char** argv) {
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
+}
+
