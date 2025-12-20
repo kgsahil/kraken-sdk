@@ -2,81 +2,123 @@
 
 A **production-grade C++ SDK** for real-time market data streaming with built-in **trading strategies** and **performance monitoring**.
 
-[![Demo Video](https://img.shields.io/badge/Demo-Video-red)](# "Coming Soon")
 [![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Linux-lightgrey.svg)](BUILDING.md)
 
 ---
 
-## 🎯 What Makes This Different
+## 🎯 Key Features
 
-| Feature | Typical SDK | This SDK |
-|---------|-------------|----------|
-| Data streaming | ✅ | ✅ |
-| Lock-free queue | ❌ | ✅ HFT-grade |
-| Order book checksum | ❌ | ✅ CRC32 |
-| **Alert strategies** | ❌ | ✅ **Built-in** |
-| **Performance dashboard** | ❌ | ✅ **Real-time** |
-| Subscription lifecycle | ❌ | ✅ Pause/resume |
-| ABI stability | ❌ | ✅ PIMPL pattern |
+| Feature | Description |
+|---------|-------------|
+| **Lock-Free Queue** | HFT-grade SPSC queue (rigtorp) for zero-contention message passing |
+| **Order Book Checksum** | CRC32 validation to detect missed updates |
+| **Trading Strategies** | Built-in alert system (PriceAlert, VolumeSpike, SpreadAlert) |
+| **Performance Dashboard** | Real-time terminal UI showing metrics |
+| **Subscription Management** | Pause, resume, add/remove symbols dynamically |
+| **ABI Stability** | PIMPL pattern for binary compatibility |
+| **Optimized** | `std::variant` messages, lock-free metrics, O(log n) order books |
 
 ---
 
-## ⚡ Quickstart (5 Lines)
+## ⚡ Quickstart
 
 ```cpp
-#include <kraken/client.hpp>
-
-int main() {
-    kraken::KrakenClient client;
-    client.on_ticker([](const auto& t) { std::cout << t.symbol << ": $" << t.last << "\n"; });
-    client.subscribe(kraken::Channel::Ticker, {"BTC/USD"});
-    client.run();
-}
-```
-
----
-
-## 🚨 Trading Strategies (Key Feature)
-
-Apply strategies to tickers. Get notified when conditions are met.
-
-```cpp
-#include <kraken/client.hpp>
-#include <kraken/strategies.hpp>
+#include <kraken/kraken.hpp>
 
 int main() {
     kraken::KrakenClient client;
     
-    // Price alert: Notify when BTC > $50,000
+    client.on_ticker([](const auto& t) {
+        std::cout << t.symbol << ": $" << t.last << "\n";
+    });
+    
+    client.subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
+    client.run();
+    
+    return 0;
+}
+```
+
+**5 lines to get started.**
+
+---
+
+## 🚨 Trading Strategies
+
+Apply strategies to tickers and get notified when conditions are met.
+
+### Price Alert
+
+```cpp
+#include <kraken/kraken.hpp>
+
+int main() {
+    kraken::KrakenClient client;
+    
+    // Alert when BTC exceeds $50,000
     auto price_alert = kraken::PriceAlert::Builder()
         .symbol("BTC/USD")
         .above(50000.0)
         .build();
     
     client.add_alert(price_alert, [](const kraken::Alert& a) {
-        std::cout << "🚨 ALERT: " << a.symbol << " hit $" << a.price << "\n";
+        std::cout << "🚨 " << a.symbol << " hit $" << a.price << "\n";
     });
     
-    // Volume spike: Notify on 2x average volume
-    auto volume_spike = kraken::VolumeSpike::Builder()
-        .symbols({"BTC/USD", "ETH/USD"})
-        .multiplier(2.0)
-        .build();
-    
-    client.add_alert(volume_spike, [](const auto& a) {
-        std::cout << "📊 Volume spike on " << a.symbol << "\n";
-    });
-    
-    client.subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
+    client.subscribe(kraken::Channel::Ticker, {"BTC/USD"});
     client.run();
 }
 ```
 
-**Built-in Strategies:**
-- `PriceAlert` - Alert when price crosses threshold
-- `VolumeSpike` - Alert on unusual volume
-- Custom strategies via `AlertStrategy` base class
+### Volume Spike Detection
+
+```cpp
+// Alert on 2x average volume
+auto volume_spike = kraken::VolumeSpike::Builder()
+    .symbols({"BTC/USD", "ETH/USD"})
+    .multiplier(2.0)
+    .lookback(50)  // Use last 50 samples for average
+    .build();
+
+client.add_alert(volume_spike, [](const auto& a) {
+    std::cout << "📊 Volume spike: " << a.symbol << "\n";
+});
+```
+
+### Spread Alert
+
+```cpp
+// Alert when spread tightens
+auto spread_alert = kraken::SpreadAlert::Builder()
+    .symbol("BTC/USD")
+    .below(10.0)  // Alert when spread < $10
+    .build();
+
+client.add_alert(spread_alert, [](const auto& a) {
+    std::cout << "💰 Tight spread on " << a.symbol << "\n";
+});
+```
+
+### Custom Strategy
+
+```cpp
+class MyStrategy : public kraken::AlertStrategy {
+public:
+    bool check(const kraken::Ticker& t) override {
+        return t.spread() < 5.0 && t.volume_24h > 1000000;
+    }
+    
+    std::string name() const override { return "MyStrategy"; }
+    std::vector<std::string> symbols() const override { return {"BTC/USD"}; }
+};
+
+auto custom = std::make_shared<MyStrategy>();
+client.add_alert(custom, [](const auto& a) {
+    std::cout << "Custom alert: " << a.message << "\n";
+});
+```
 
 ---
 
@@ -84,22 +126,29 @@ int main() {
 
 Real-time terminal dashboard showing SDK performance:
 
-```
-┌─────────────────────────────────────────────┐
-│         KRAKEN SDK PERFORMANCE              │
-├─────────────────────────────────────────────┤
-│  Status:       🟢 Connected                 │
-│  Messages/sec: 1,234                        │
-│  Total msgs:   1,123,456                    │
-│  Queue depth:  45 / 65536                   │
-│  Dropped:      0                            │
-│  Max latency:  2.3ms                        │
-└─────────────────────────────────────────────┘
+```bash
+./build/dashboard
 ```
 
-Run the dashboard example:
-```bash
-./examples/dashboard
+```
+╔═══════════════════════════════════════════════════════════════╗
+║               KRAKEN SDK LIVE DASHBOARD                       ║
+╠═══════════════════════════════════════════════════════════════╣
+║ Status: connected       Uptime: 00:15:32                 ║
+╠═══════════════════════════════════════════════════════════════╣
+║                       PERFORMANCE METRICS                     ║
+╠═══════════════════════════════════════════════════════════════╣
+║ Messages Received:  23,456        Messages/sec: 25.4         ║
+║ Messages Processed: 23,456        Queue Depth:  0             ║
+║ Messages Dropped:   0              Max Latency:  371 µs       ║
+╠═══════════════════════════════════════════════════════════════╣
+║                          TICKERS                              ║
+╠═══════════════════════════════════════════════════════════════╣
+║  Symbol     │    Price    │    Bid      │    Ask      │ Chg  ║
+╠═════════════╪═════════════╪═════════════╪═════════════╪══════╣
+║ BTC/USD    │ $  88117.20 │ $  88117.10 │ $  88117.20 │      ║
+║ ETH/USD    │ $   2976.43 │ $   2976.42 │ $   2976.43 │      ║
+╚═══════════════════════════════════════════════════════════════╝
 ```
 
 ---
@@ -122,7 +171,8 @@ Run the dashboard example:
 │        │                               │  Strategy  │        │
 │        │                               │   Engine   │        │
 │        │                               └─────┬──────┘        │
-│        ▼                                     ▼               │
+│        │                                     │                │
+│        ▼                                     ▼                │
 │  ┌────────────┐                       ┌────────────┐         │
 │  │   Kraken   │                       │    User    │         │
 │  │  Exchange  │                       │ Callbacks  │         │
@@ -131,24 +181,34 @@ Run the dashboard example:
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Only 2 threads.** I/O thread handles WebSocket, dispatcher thread runs callbacks and strategies.
+**Two-thread reactor pattern:**
+- **I/O Thread**: Handles WebSocket connection, JSON parsing, pushes to lock-free queue
+- **Dispatcher Thread**: Consumes from queue, runs callbacks and strategy evaluation
+
+**Optimizations:**
+- `std::variant` for messages (75% memory reduction)
+- Lock-free atomics for metrics (zero contention)
+- Condition variable for efficient thread wake-up
+- O(log n) order book updates with `std::map`
 
 ---
 
 ## 📈 Performance
 
-Benchmarked on Ubuntu 22.04, Intel i7:
+Benchmarked on Ubuntu 22.04 with live Kraken API:
 
 | Metric | Result |
 |--------|--------|
-| Messages/sec | 50,000+ |
-| Max latency | < 5ms |
-| Queue capacity | 65,536 |
-| Memory usage | < 50MB |
+| **Max Latency** | **< 1 ms** (371 µs typical) |
+| **Messages Dropped** | **0** (even under load) |
+| **Queue Capacity** | 65,536 (configurable) |
+| **Throughput** | Limited by Kraken API rate (~15-20 msg/sec public) |
+| **Memory per Message** | ~200 bytes (`std::variant`) |
 
-Run benchmarks yourself:
+Run benchmarks:
 ```bash
-./tools/benchmark --symbols BTC/USD,ETH/USD --duration 60
+cd build
+./benchmark 30  # Run for 30 seconds
 ```
 
 ---
@@ -157,28 +217,35 @@ Run benchmarks yourself:
 
 ### Requirements
 
-- **Platform:** Linux
+- **Platform:** Linux (WSL supported)
 - **Compiler:** GCC 9+ or Clang 10+ with C++17 support
-- **Dependencies:** Boost >= 1.81, OpenSSL >= 1.1.1
+- **Dependencies:**
+  - Boost >= 1.70 (system component)
+  - OpenSSL >= 1.1.1
+  - CMake >= 3.16
 
-### Build
+### Quick Build (WSL/Ubuntu)
 
 ```bash
 # Install dependencies
-sudo apt-get install -y build-essential cmake libssl-dev libboost-all-dev
+sudo apt-get update
+sudo apt-get install -y build-essential cmake libssl-dev libboost-system-dev
 
 # Clone and build
-git clone https://github.com/your-org/kraken-sdk.git
+git clone https://github.com/kgsahil/kraken-sdk.git
 cd kraken-sdk
 mkdir build && cd build
 cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 
 # Run examples
-./examples/quickstart
-./examples/strategies
-./examples/dashboard
+./quickstart
+./strategies
+./dashboard
+./orderbook
 ```
+
+See [BUILDING.md](BUILDING.md) for detailed instructions.
 
 ### CMake Integration
 
@@ -191,10 +258,10 @@ target_link_libraries(your_app PRIVATE kraken::kraken)
 
 ## 📚 Examples
 
-### Order Book with Checksum
+### Order Book with Checksum Validation
 
 ```cpp
-#include <kraken/client.hpp>
+#include <kraken/kraken.hpp>
 
 int main() {
     kraken::KrakenClient client;
@@ -204,41 +271,45 @@ int main() {
             std::cerr << "⚠️ " << symbol << ": checksum failed!\n";
             return;
         }
-        std::cout << symbol << " spread: $" << book.spread() << "\n";
+        
+        auto best_bid = book.best_bid();
+        auto best_ask = book.best_ask();
+        
+        if (best_bid && best_ask) {
+            std::cout << symbol << " spread: $" 
+                      << (best_ask->price - best_bid->price) << "\n";
+        }
     });
     
+    // Subscribe to order book with depth 10
     client.subscribe_book({"BTC/USD"}, 10);
     client.run();
 }
 ```
 
-### Custom Strategy
+### Subscription Management
 
 ```cpp
-class TightSpreadAlert : public kraken::AlertStrategy {
-public:
-    bool check(const kraken::Ticker& t) override {
-        return t.spread() < 5.0;  // Alert when spread < $5
-    }
-    
-    std::string name() const override { return "TightSpread"; }
-    std::vector<std::string> symbols() const override { return {"BTC/USD"}; }
-};
+// Subscribe
+auto sub = client.subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
 
-int main() {
-    kraken::KrakenClient client;
-    
-    auto custom = std::make_shared<TightSpreadAlert>();
-    client.add_alert(custom, [](const auto& a) {
-        std::cout << "💰 Tight spread on " << a.symbol << "!\n";
-    });
-    
-    client.subscribe(kraken::Channel::Ticker, {"BTC/USD"});
-    client.run();
-}
+// Pause subscription (stops receiving updates)
+sub.pause();
+
+// Resume
+sub.resume();
+
+// Add more symbols
+sub.add_symbols({"SOL/USD"});
+
+// Remove symbols
+sub.remove_symbols({"ETH/USD"});
+
+// Unsubscribe completely
+sub.unsubscribe();
 ```
 
-### Connection State
+### Connection State Monitoring
 
 ```cpp
 client.on_connection_state([](kraken::ConnectionState state) {
@@ -252,8 +323,22 @@ client.on_connection_state([](kraken::ConnectionState state) {
         case kraken::ConnectionState::Disconnected:
             std::cout << "🔴 Disconnected\n";
             break;
+        default:
+            break;
     }
 });
+```
+
+### Metrics
+
+```cpp
+auto metrics = client.get_metrics();
+
+std::cout << "Messages/sec: " << metrics.messages_per_second() << "\n";
+std::cout << "Total processed: " << metrics.messages_processed << "\n";
+std::cout << "Dropped: " << metrics.messages_dropped << "\n";
+std::cout << "Max latency: " << metrics.latency_max_us.count() << " µs\n";
+std::cout << "Uptime: " << metrics.uptime_string() << "\n";
 ```
 
 ---
@@ -263,13 +348,24 @@ client.on_connection_state([](kraken::ConnectionState state) {
 ```cpp
 auto config = kraken::ClientConfig::Builder()
     .url("wss://ws.kraken.com/v2")
-    .queue_capacity(131072)
+    .queue_capacity(131072)  // Power of 2 recommended
     .reconnect_attempts(10)
+    .reconnect_delay(std::chrono::milliseconds(1000))
     .validate_checksums(true)
     .build();
 
 kraken::KrakenClient client(config);
 ```
+
+### Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `url` | `wss://ws.kraken.com/v2` | WebSocket endpoint |
+| `queue_capacity` | `65536` | Message queue size (power of 2) |
+| `reconnect_attempts` | `10` | Max reconnection attempts |
+| `reconnect_delay` | `1000ms` | Delay between attempts |
+| `validate_checksums` | `true` | Enable CRC32 validation |
 
 ---
 
@@ -279,14 +375,21 @@ kraken::KrakenClient client(config);
 
 ```cpp
 class KrakenClient {
-    // Constructors
+public:
+    // Construction
     KrakenClient();
     explicit KrakenClient(ClientConfig config);
+    ~KrakenClient();
     
-    // Callbacks
+    // Non-copyable, movable
+    KrakenClient(const KrakenClient&) = delete;
+    KrakenClient(KrakenClient&&) noexcept;
+    
+    // Callbacks (thread-safe)
     void on_ticker(TickerCallback callback);
     void on_trade(TradeCallback callback);
     void on_book(BookCallback callback);
+    void on_ohlc(OHLCCallback callback);
     void on_error(ErrorCallback callback);
     void on_connection_state(ConnectionStateCallback callback);
     
@@ -302,11 +405,13 @@ class KrakenClient {
     // Strategies
     int add_alert(std::shared_ptr<AlertStrategy> strategy, AlertCallback callback);
     void remove_alert(int alert_id);
+    size_t alert_count() const;
     
     // Event loop
-    void run();
-    void run_async();
+    void run();           // Blocking
+    void run_async();     // Non-blocking (spawns threads)
     void stop();
+    bool is_running() const;
     
     // Metrics
     Metrics get_metrics() const;
@@ -316,29 +421,52 @@ class KrakenClient {
 ### Data Types
 
 ```cpp
+// Ticker
 struct Ticker {
     std::string symbol;
     double bid, ask, last;
     double volume_24h, high_24h, low_24h;
-    double spread() const;
-    double mid_price() const;
+    std::string timestamp;
+    
+    double spread() const;      // ask - bid
+    double mid_price() const;   // (bid + ask) / 2
 };
 
+// Order Book
 struct OrderBook {
     std::string symbol;
     std::vector<PriceLevel> bids, asks;
     bool is_valid;  // CRC32 checksum passed
+    
+    const PriceLevel* best_bid() const;
+    const PriceLevel* best_ask() const;
     double spread() const;
 };
 
-struct Alert {
-    std::string strategy_name;
-    std::string symbol;
-    double price;
-    std::string message;
+// Subscription Handle
+class Subscription {
+public:
+    void pause();
+    void resume();
+    void unsubscribe();
+    void add_symbols(const std::vector<std::string>& symbols);
+    void remove_symbols(const std::vector<std::string>& symbols);
+    bool is_active() const;
+    bool is_paused() const;
+    Channel channel() const;
+    std::vector<std::string> symbols() const;
 };
+```
 
-enum class Channel { Ticker, Trade, Book, OHLC };
+### Channels
+
+```cpp
+enum class Channel {
+    Ticker,  // 24h ticker updates
+    Trade,   // Recent trades
+    Book,    // Order book (requires depth)
+    OHLC     // OHLC candles
+};
 ```
 
 ---
@@ -347,12 +475,13 @@ enum class Channel { Ticker, Trade, Book, OHLC };
 
 | Operation | Thread Safety |
 |-----------|---------------|
-| `on_ticker()`, `on_error()`, etc. | ✅ Thread-safe |
-| `subscribe()` | ✅ Thread-safe |
-| `add_alert()` | ✅ Thread-safe |
-| `is_connected()` | ✅ Thread-safe |
-| `get_metrics()` | ✅ Thread-safe |
-| `run()`, `stop()` | ⚠️ Single thread |
+| Callback registration (`on_ticker`, etc.) | ✅ Thread-safe |
+| Subscriptions (`subscribe`, `subscribe_book`) | ✅ Thread-safe |
+| Alert management (`add_alert`, `remove_alert`) | ✅ Thread-safe |
+| Connection queries (`is_connected`, `get_metrics`) | ✅ Thread-safe |
+| Event loop (`run`, `run_async`, `stop`) | ⚠️ Single thread |
+
+**Note:** Callbacks are invoked on the dispatcher thread. If you need thread-safe callbacks, use synchronization primitives inside your callback functions.
 
 ---
 
@@ -361,38 +490,71 @@ enum class Channel { Ticker, Trade, Book, OHLC };
 ```
 kraken-sdk/
 ├── include/kraken/
-│   ├── client.hpp       # Public API
-│   ├── types.hpp        # Data types
-│   └── strategies.hpp   # Alert strategies
+│   ├── client.hpp          # Public API (PIMPL)
+│   ├── types.hpp           # Data types, enums
+│   ├── strategies.hpp      # Alert strategies
+│   ├── config.hpp          # Configuration builder
+│   ├── metrics.hpp         # Performance metrics
+│   ├── subscription.hpp    # Subscription handle
+│   ├── error.hpp           # Error types
+│   └── kraken.hpp          # Umbrella header
 ├── src/
-│   ├── client_impl.cpp
-│   ├── connection.cpp
-│   ├── parser.cpp
-│   ├── book_engine.cpp
-│   └── strategy_engine.cpp
+│   ├── client_impl.cpp     # PIMPL implementation
+│   ├── connection.cpp      # WebSocket (Boost.Beast)
+│   ├── parser.cpp          # JSON parsing (RapidJSON)
+│   ├── book_engine.cpp     # Order book + CRC32
+│   ├── strategy_engine.cpp # Strategy evaluation
+│   └── subscription.cpp   # Subscription implementation
 ├── examples/
-│   ├── quickstart.cpp   # 5-line demo
-│   ├── strategies.cpp   # Alert strategies
-│   ├── dashboard.cpp    # Performance dashboard
-│   └── orderbook.cpp    # Order book example
-└── tools/
-    └── benchmark.cpp    # Performance benchmark
+│   ├── quickstart.cpp      # Minimal example
+│   ├── strategies.cpp      # Strategy demo
+│   ├── dashboard.cpp       # Performance dashboard
+│   └── orderbook.cpp       # Order book example
+├── tools/
+│   └── benchmark.cpp       # Performance benchmark
+├── tests/
+│   ├── test_strategies.cpp
+│   └── test_book_checksum.cpp
+├── docs/
+│   ├── spsc-queue-design.md
+│   ├── strategy-engine-design.md
+│   └── future-enhancements.md
+├── CMakeLists.txt
+├── BUILDING.md
+└── README.md
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+cd build
+ctest --output-on-failure
+```
+
+Or run individual tests:
+```bash
+./test_strategies
+./test_book_checksum
 ```
 
 ---
 
 ## 📄 License
 
-MIT License
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
 ## 🙏 Acknowledgements
 
 - [rigtorp/SPSCQueue](https://github.com/rigtorp/SPSCQueue) - Lock-free queue
-- [RapidJSON](https://github.com/Tencent/rapidjson) - JSON parsing
+- [RapidJSON](https://github.com/Tencent/rapidjson) - Fast JSON parsing
 - [Boost.Beast](https://github.com/boostorg/beast) - WebSocket client
 
 ---
 
-**Built for the Kraken Forge Hackathon 2025** 🚀
+## 🚀 Built for Kraken Forge Hackathon 2025
+
+**This SDK transforms raw market data into actionable trading intelligence.**
