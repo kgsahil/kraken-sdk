@@ -388,6 +388,9 @@ void KrakenClient::Impl::stop() {
     
     stop_requested_ = true;
     
+    // Wake up dispatcher thread if waiting on condition variable
+    queue_cv_.notify_all();
+    
     // Close connection to unblock I/O thread
     if (connection_) {
         connection_->close();
@@ -433,7 +436,10 @@ void KrakenClient::Impl::io_loop() {
             msg_received_.fetch_add(1, std::memory_order_relaxed);
             
             // Push to queue
-            if (!queue_->try_push(std::move(msg))) {
+            if (queue_->try_push(std::move(msg))) {
+                // Notify dispatcher thread (efficient wake-up)
+                queue_cv_.notify_one();
+            } else {
                 // Queue full - drop message (lock-free)
                 msg_dropped_.fetch_add(1, std::memory_order_relaxed);
                 
@@ -486,8 +492,11 @@ void KrakenClient::Impl::dispatcher_loop() {
                 }
             }
         } else {
-            // Queue empty - brief pause
-            std::this_thread::sleep_for(std::chrono::microseconds(100));
+            // Queue empty - wait efficiently with condition variable
+            std::unique_lock<std::mutex> lock(queue_cv_mutex_);
+            queue_cv_.wait_for(lock, std::chrono::milliseconds(10), [this] {
+                return queue_->front() != nullptr || stop_requested_.load();
+            });
         }
     }
 }
@@ -499,32 +508,33 @@ void KrakenClient::Impl::dispatch(Message& msg) {
         
         switch (msg.type) {
             case MessageType::Ticker:
-                if (ticker_callback_) {
-                    ticker_callback_(msg.ticker);
+                if (ticker_callback_ && msg.holds<Ticker>()) {
+                    ticker_callback_(msg.get<Ticker>());
                 }
                 break;
                 
             case MessageType::Trade:
-                if (trade_callback_) {
-                    trade_callback_(msg.trade);
+                if (trade_callback_ && msg.holds<Trade>()) {
+                    trade_callback_(msg.get<Trade>());
                 }
                 break;
                 
             case MessageType::Book:
-                if (book_callback_) {
-                    book_callback_(msg.book.symbol, msg.book);
+                if (book_callback_ && msg.holds<OrderBook>()) {
+                    const auto& book = msg.get<OrderBook>();
+                    book_callback_(book.symbol, book);
                 }
                 break;
                 
             case MessageType::OHLC:
-                if (ohlc_callback_) {
-                    ohlc_callback_(msg.ohlc);
+                if (ohlc_callback_ && msg.holds<OHLC>()) {
+                    ohlc_callback_(msg.get<OHLC>());
                 }
                 break;
                 
             case MessageType::Error:
-                if (error_callback_) {
-                    error_callback_(msg.error);
+                if (error_callback_ && msg.holds<Error>()) {
+                    error_callback_(msg.get<Error>());
                 }
                 break;
                 
@@ -534,8 +544,8 @@ void KrakenClient::Impl::dispatch(Message& msg) {
     }
     
     // Evaluate strategies OUTSIDE the lock to avoid blocking callbacks
-    if (msg.type == MessageType::Ticker) {
-        strategy_engine_.evaluate(msg.ticker);
+    if (msg.type == MessageType::Ticker && msg.holds<Ticker>()) {
+        strategy_engine_.evaluate(msg.get<Ticker>());
     }
 }
 

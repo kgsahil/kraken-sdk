@@ -2,12 +2,14 @@
 
 #include "kraken/types.hpp"
 #include <unordered_map>
+#include <map>
 #include <string>
 #include <cstdint>
 
 namespace kraken {
 
 /// Order book engine with CRC32 checksum validation
+/// Uses std::map internally for O(log n) operations
 class BookEngine {
 public:
     BookEngine() = default;
@@ -25,7 +27,7 @@ public:
                bool is_snapshot,
                uint32_t expected_checksum = 0);
     
-    /// Get current order book for a symbol
+    /// Get current order book for a symbol (creates snapshot from maps)
     const OrderBook* get(const std::string& symbol) const;
     
     /// Clear all order books
@@ -38,12 +40,25 @@ public:
     static uint32_t calculate_checksum(const OrderBook& book);
     
 private:
-    /// Merge update into existing book
-    void merge_update(OrderBook& book,
-                      const std::vector<PriceLevel>& bids,
-                      const std::vector<PriceLevel>& asks);
+    /// Internal book representation using maps for O(log n) operations
+    struct InternalBook {
+        std::string symbol;
+        std::map<double, double, std::greater<double>> bids;  // Price desc (best bid first)
+        std::map<double, double> asks;                        // Price asc (best ask first)
+        uint32_t checksum = 0;
+        bool is_valid = true;
+    };
     
-    std::unordered_map<std::string, OrderBook> books_;
+    /// Apply updates to internal map structure - O(log n) per level
+    void apply_updates(InternalBook& book,
+                       const std::vector<PriceLevel>& bids,
+                       const std::vector<PriceLevel>& asks);
+    
+    /// Convert internal map to OrderBook vector format
+    OrderBook to_order_book(const InternalBook& book) const;
+    
+    std::unordered_map<std::string, InternalBook> books_;
+    mutable std::unordered_map<std::string, OrderBook> book_cache_; // Cache for get()
 };
 
 } // namespace kraken

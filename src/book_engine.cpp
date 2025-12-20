@@ -96,86 +96,93 @@ bool BookEngine::apply(const std::string& symbol,
                         const std::vector<PriceLevel>& asks,
                         bool is_snapshot,
                         uint32_t expected_checksum) {
-    OrderBook& book = books_[symbol];
+    InternalBook& book = books_[symbol];
     book.symbol = symbol;
     
     if (is_snapshot) {
-        // Full snapshot - replace
-        book.bids = bids;
-        book.asks = asks;
-    } else {
-        // Incremental update - merge
-        merge_update(book, bids, asks);
+        // Full snapshot - clear and rebuild maps
+        book.bids.clear();
+        book.asks.clear();
     }
+    
+    // Apply updates - O(log n) per level
+    apply_updates(book, bids, asks);
     
     // Validate checksum if provided
     if (expected_checksum != 0) {
-        uint32_t calc = calculate_checksum(book);
+        OrderBook ob = to_order_book(book);
+        uint32_t calc = calculate_checksum(ob);
         book.checksum = calc;
         book.is_valid = (calc == expected_checksum);
         return book.is_valid;
     }
     
+    // Invalidate cache
+    book_cache_.erase(symbol);
     return true;
 }
 
 const OrderBook* BookEngine::get(const std::string& symbol) const {
     auto it = books_.find(symbol);
-    return it != books_.end() ? &it->second : nullptr;
+    if (it == books_.end()) {
+        return nullptr;
+    }
+    
+    // Update cache with current snapshot
+    book_cache_[symbol] = to_order_book(it->second);
+    return &book_cache_[symbol];
 }
 
 void BookEngine::clear() {
     books_.clear();
+    book_cache_.clear();
 }
 
 void BookEngine::remove(const std::string& symbol) {
     books_.erase(symbol);
+    book_cache_.erase(symbol);
 }
 
-void BookEngine::merge_update(OrderBook& book,
-                               const std::vector<PriceLevel>& bids,
-                               const std::vector<PriceLevel>& asks) {
-    // Helper to apply updates to a side
-    auto apply_side = [](std::vector<PriceLevel>& levels, 
-                         const std::vector<PriceLevel>& updates,
-                         bool is_bid) {
-        for (const auto& upd : updates) {
-            // Find existing level
-            auto it = std::find_if(levels.begin(), levels.end(),
-                [&](const PriceLevel& lvl) {
-                    return lvl.price == upd.price;
-                });
-            
-            if (upd.quantity == 0.0) {
-                // Remove level
-                if (it != levels.end()) {
-                    levels.erase(it);
-                }
-            } else if (it != levels.end()) {
-                // Update existing
-                it->quantity = upd.quantity;
-            } else {
-                // Insert new level
-                levels.push_back(upd);
-            }
-        }
-        
-        // Re-sort (bids descending, asks ascending)
-        if (is_bid) {
-            std::sort(levels.begin(), levels.end(),
-                [](const PriceLevel& a, const PriceLevel& b) {
-                    return a.price > b.price;
-                });
+void BookEngine::apply_updates(InternalBook& book,
+                                const std::vector<PriceLevel>& bids,
+                                const std::vector<PriceLevel>& asks) {
+    // Apply bid updates - O(log n) per level
+    for (const auto& level : bids) {
+        if (level.quantity == 0.0) {
+            book.bids.erase(level.price);  // O(log n) removal
         } else {
-            std::sort(levels.begin(), levels.end(),
-                [](const PriceLevel& a, const PriceLevel& b) {
-                    return a.price < b.price;
-                });
+            book.bids[level.price] = level.quantity;  // O(log n) insert/update
         }
-    };
+    }
     
-    apply_side(book.bids, bids, true);
-    apply_side(book.asks, asks, false);
+    // Apply ask updates - O(log n) per level
+    for (const auto& level : asks) {
+        if (level.quantity == 0.0) {
+            book.asks.erase(level.price);  // O(log n) removal
+        } else {
+            book.asks[level.price] = level.quantity;  // O(log n) insert/update
+        }
+    }
+}
+
+OrderBook BookEngine::to_order_book(const InternalBook& ibook) const {
+    OrderBook book;
+    book.symbol = ibook.symbol;
+    book.checksum = ibook.checksum;
+    book.is_valid = ibook.is_valid;
+    
+    // Convert maps to vectors (already sorted by map ordering)
+    book.bids.reserve(ibook.bids.size());
+    for (const auto& pair : ibook.bids) {
+        book.bids.push_back({pair.first, pair.second});
+    }
+    
+    book.asks.reserve(ibook.asks.size());
+    for (const auto& pair : ibook.asks) {
+        book.asks.push_back({pair.first, pair.second});
+    }
+    
+    return book;
 }
 
 uint32_t BookEngine::calculate_checksum(const OrderBook& book) {

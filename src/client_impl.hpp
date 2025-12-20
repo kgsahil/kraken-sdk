@@ -13,9 +13,11 @@
 #include <atomic>
 #include <mutex>
 #include <shared_mutex>
+#include <condition_variable>
 #include <unordered_map>
 #include <memory>
 #include <functional>
+#include <variant>
 
 namespace kraken {
 
@@ -24,7 +26,7 @@ class Connection;
 class SubscriptionImpl;
 
 //------------------------------------------------------------------------------
-// Internal Message Type
+// Internal Message Type (optimized with std::variant)
 //------------------------------------------------------------------------------
 
 enum class MessageType {
@@ -38,19 +40,38 @@ enum class MessageType {
     Heartbeat
 };
 
+// Empty types for control messages
+struct SubscribedMsg {};
+struct UnsubscribedMsg {};
+struct HeartbeatMsg {};
+
+// Variant holding only one message type at a time (memory optimization)
+using MessageData = std::variant<
+    std::monostate,    // Default/empty state
+    Ticker,
+    Trade,
+    OrderBook,
+    OHLC,
+    Error,
+    SubscribedMsg,
+    UnsubscribedMsg,
+    HeartbeatMsg
+>;
+
 struct Message {
-    MessageType type;
-    std::string raw_json;
-    
-    // Parsed data (only one is valid based on type)
-    Ticker ticker;
-    Trade trade;
-    OrderBook book;
-    OHLC ohlc;
-    Error error;
-    
-    // Metadata
+    MessageType type = MessageType::Heartbeat;
+    MessageData data;
     std::chrono::steady_clock::time_point receive_time;
+    
+    // Helper accessors with compile-time safety
+    template<typename T>
+    const T& get() const { return std::get<T>(data); }
+    
+    template<typename T>
+    T& get() { return std::get<T>(data); }
+    
+    template<typename T>
+    bool holds() const { return std::holds_alternative<T>(data); }
 };
 
 //------------------------------------------------------------------------------
@@ -145,8 +166,10 @@ private:
     std::atomic<bool> running_{false};
     std::atomic<bool> stop_requested_{false};
     
-    // Message queue
+    // Message queue with condition variable for efficient wake-up
     std::unique_ptr<rigtorp::SPSCQueue<Message>> queue_;
+    std::mutex queue_cv_mutex_;
+    std::condition_variable queue_cv_;
     
     // Callbacks (protected by shared_mutex for read-heavy access)
     mutable std::shared_mutex callbacks_mutex_;

@@ -121,13 +121,13 @@ OHLC parse_ohlc(const rapidjson::Value& data, const std::string& symbol) {
 
 Message parse_message(const std::string& raw_json) {
     Message msg;
-    msg.raw_json = raw_json;
-    msg.type = MessageType::Heartbeat;  // Default
+    msg.type = MessageType::Heartbeat;
+    msg.data = HeartbeatMsg{};
     
     rapidjson::Document doc;
     if (doc.Parse(raw_json.c_str()).HasParseError()) {
         msg.type = MessageType::Error;
-        msg.error = {ErrorCode::ParseError, "Failed to parse JSON", raw_json};
+        msg.data = Error{ErrorCode::ParseError, "Failed to parse JSON", raw_json};
         return msg;
     }
     
@@ -137,14 +137,15 @@ Message parse_message(const std::string& raw_json) {
     
     // Handle system messages
     if (method == "subscribe" || method == "unsubscribe") {
-        // Subscription response
         if (doc.HasMember("success") && doc["success"].IsBool()) {
             if (doc["success"].GetBool()) {
                 msg.type = (method == "subscribe") ? 
                     MessageType::Subscribed : MessageType::Unsubscribed;
+                msg.data = (method == "subscribe") ? 
+                    MessageData{SubscribedMsg{}} : MessageData{UnsubscribedMsg{}};
             } else {
                 msg.type = MessageType::Error;
-                msg.error = {
+                msg.data = Error{
                     ErrorCode::InvalidSymbol,
                     get_string(doc, "error", "Subscription failed"),
                     raw_json
@@ -157,6 +158,7 @@ Message parse_message(const std::string& raw_json) {
     // Handle heartbeat
     if (channel == "heartbeat") {
         msg.type = MessageType::Heartbeat;
+        msg.data = HeartbeatMsg{};
         return msg;
     }
     
@@ -168,26 +170,24 @@ Message parse_message(const std::string& raw_json) {
     
     const rapidjson::Value& data_arr = doc["data"];
     const rapidjson::Value& data = data_arr[0];
-    
-    // Get symbol
     std::string symbol = get_string(data, "symbol");
     
-    // Route by channel type
+    // Route by channel type - store in variant
     if (channel == "ticker") {
         msg.type = MessageType::Ticker;
-        msg.ticker = parse_ticker(data, symbol);
+        msg.data = parse_ticker(data, symbol);
     }
     else if (channel == "trade") {
         msg.type = MessageType::Trade;
-        msg.trade = parse_trade(data, symbol);
+        msg.data = parse_trade(data, symbol);
     }
     else if (channel == "book") {
         msg.type = MessageType::Book;
-        msg.book = parse_book(data, symbol);
+        msg.data = parse_book(data, symbol);
     }
     else if (channel == "ohlc") {
         msg.type = MessageType::OHLC;
-        msg.ohlc = parse_ohlc(data, symbol);
+        msg.data = parse_ohlc(data, symbol);
     }
     
     return msg;
