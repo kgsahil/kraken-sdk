@@ -1,6 +1,6 @@
 # OpenTelemetry Implementation Status
 
-## Current Status: ⚠️ Interface Defined, Integration Pending
+## Current Status: ✅ Integrated into KrakenClient
 
 ---
 
@@ -25,16 +25,24 @@
 
 ---
 
-## What's Missing
+## What's Complete
 
-### ❌ Client Integration
+### ✅ Client Integration
 
-The `Telemetry` class is **not yet integrated** into `KrakenClient`:
+The `Telemetry` class is **fully integrated** into `KrakenClient`:
 
-- `ClientConfig` does not have a `telemetry()` builder method
-- `KrakenClient::Impl` does not instantiate or use `Telemetry`
-- Metrics are not automatically exported to OTLP endpoints
-- No background thread for periodic metric export
+- ✅ `ClientConfig::Builder::telemetry()` method added
+- ✅ `KrakenClient::Impl` instantiates `Telemetry` when configured
+- ✅ All metrics automatically collected:
+  - Messages received/processed/dropped
+  - Queue depth
+  - Connection state
+  - Latency (max, average)
+  - Reconnect attempts
+  - Checksum failures
+  - Gap detection
+  - Strategy alerts triggered
+- ✅ `get_metrics()` reads from Telemetry when enabled
 
 ### ❌ OTLP Export
 
@@ -67,15 +75,13 @@ The current implementation is **lightweight** and doesn't require the full OpenT
 
 ## Implementation Plan
 
-### Phase 1: Client Integration (Low Effort)
+### ✅ Phase 1: Client Integration - COMPLETE
 
-1. Add `telemetry()` method to `ClientConfig::Builder`
-2. Store `TelemetryConfig` in `ClientConfig`
-3. Instantiate `Telemetry` in `KrakenClient::Impl` constructor
-4. Call `metrics().increment_*()` methods in hot path
-5. Update `get_metrics()` to read from `Telemetry` instead of direct atomics
-
-**Estimated Effort:** 2-3 hours
+1. ✅ Add `telemetry()` method to `ClientConfig::Builder`
+2. ✅ Store `TelemetryConfig` in `ClientConfig`
+3. ✅ Instantiate `Telemetry` in `KrakenClient::Impl` constructor
+4. ✅ Call `metrics().increment_*()` methods in hot path
+5. ✅ Update `get_metrics()` to read from `Telemetry` when enabled
 
 ### Phase 2: Prometheus Export (Medium Effort)
 

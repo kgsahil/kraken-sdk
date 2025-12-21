@@ -2,6 +2,7 @@
 
 #include "backoff.hpp"
 #include "gap_detector.hpp"
+#include "telemetry.hpp"
 #include <string>
 #include <chrono>
 #include <memory>
@@ -48,6 +49,9 @@ public:
     /// Get gap callback (may be null)
     const GapCallback& on_gap() const { return on_gap_; }
     
+    /// Get telemetry configuration
+    const TelemetryConfig& telemetry_config() const { return telemetry_config_; }
+    
     // Legacy accessors (deprecated, for backward compatibility)
     [[deprecated("Use backoff_strategy() instead")]]
     int reconnect_attempts() const { 
@@ -76,6 +80,7 @@ private:
     ReconnectCallback on_reconnect_;
     SequenceTracker::Config gap_config_;
     GapCallback on_gap_;
+    TelemetryConfig telemetry_config_;
 };
 
 //------------------------------------------------------------------------------
@@ -119,6 +124,9 @@ public:
     
     /// Set gap detection callback
     Builder& on_gap(GapCallback callback);
+    
+    /// Set telemetry configuration
+    Builder& telemetry(TelemetryConfig config);
     
     // Legacy methods (deprecated, for backward compatibility)
     [[deprecated("Use backoff() instead")]]

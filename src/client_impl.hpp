@@ -6,6 +6,7 @@
 #include "kraken/config.hpp"
 #include "kraken/metrics.hpp"
 #include "kraken/strategies.hpp"
+#include "kraken/telemetry.hpp"
 
 #include <rigtorp/SPSCQueue.h>
 
@@ -232,6 +233,9 @@ private:
     
     // Gap detection
     SequenceTracker gap_tracker_;
+    
+    // Telemetry (optional, created if config has telemetry enabled)
+    std::shared_ptr<Telemetry> telemetry_;
     
     // Latest data snapshots (thread-safe)
     mutable std::shared_mutex snapshots_mutex_;

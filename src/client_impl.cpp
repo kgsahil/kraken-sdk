@@ -151,9 +151,27 @@ KrakenClient::Impl::Impl(ClientConfig config)
     , backoff_strategy_(config_.backoff_strategy())
     , gap_tracker_(config_.gap_detection_config()) {
     
-    // Set up gap callback if configured
-    if (config_.on_gap()) {
-        gap_tracker_.on_gap(config_.on_gap());
+    // Set up gap callback - combine user callback with telemetry
+    if (config_.on_gap() || config_.telemetry_config().enable_metrics) {
+        gap_tracker_.on_gap([this](const GapInfo& gap) {
+            // Update telemetry if enabled
+            if (telemetry_) {
+                telemetry_->metrics().increment_gaps_detected();
+            }
+            // Call user callback if configured
+            if (config_.on_gap()) {
+                try {
+                    config_.on_gap()(gap);
+                } catch (...) {
+                    // User callback threw - ignore
+                }
+            }
+        });
+    }
+    
+    // Initialize telemetry if configured
+    if (config_.telemetry_config().enable_metrics) {
+        telemetry_ = Telemetry::create(config_.telemetry_config());
     }
 }
 
@@ -270,6 +288,11 @@ ConnectionState KrakenClient::Impl::connection_state() const {
 void KrakenClient::Impl::set_connection_state(ConnectionState state) {
     state_.store(state, std::memory_order_relaxed);
     
+    // Update telemetry if enabled
+    if (telemetry_) {
+        telemetry_->metrics().set_connection_state(static_cast<int>(state));
+    }
+    
     // Notify callback
     std::shared_lock lock(callbacks_mutex_);
     if (state_callback_) {
@@ -366,7 +389,17 @@ void KrakenClient::Impl::send_pending_subscriptions() {
 
 int KrakenClient::Impl::add_alert(std::shared_ptr<AlertStrategy> strategy, 
                                    AlertCallback callback) {
-    return strategy_engine_.add(std::move(strategy), std::move(callback));
+    // Wrap callback to track telemetry if enabled
+    AlertCallback wrapped_callback = callback;
+    if (telemetry_) {
+        wrapped_callback = [this, callback](const Alert& alert) {
+            // Update telemetry
+            telemetry_->metrics().increment_alerts_triggered(alert.strategy_name);
+            // Call original callback
+            callback(alert);
+        };
+    }
+    return strategy_engine_.add(std::move(strategy), std::move(wrapped_callback));
 }
 
 void KrakenClient::Impl::remove_alert(int alert_id) {
@@ -484,6 +517,12 @@ void KrakenClient::Impl::io_loop() {
             // Update metrics (lock-free)
             msg_received_.fetch_add(1, std::memory_order_relaxed);
             
+            // Update telemetry if enabled
+            if (telemetry_) {
+                std::string channel = to_string(static_cast<Channel>(msg.type));
+                telemetry_->metrics().increment_messages_received(channel);
+            }
+            
             // Push to queue
             if (queue_->try_push(std::move(msg))) {
                 // Notify dispatcher thread (efficient wake-up)
@@ -491,6 +530,11 @@ void KrakenClient::Impl::io_loop() {
             } else {
                 // Queue full - drop message (lock-free)
                 msg_dropped_.fetch_add(1, std::memory_order_relaxed);
+                
+                // Update telemetry if enabled
+                if (telemetry_) {
+                    telemetry_->metrics().increment_messages_dropped();
+                }
                 
                 // Notify via error callback
                 safe_invoke_error_callback(ErrorCode::QueueOverflow, 
@@ -510,6 +554,12 @@ void KrakenClient::Impl::io_loop() {
 void KrakenClient::Impl::dispatcher_loop() {
     while (!stop_requested_) {
         Message* msg = queue_->front();
+        
+        // Update queue depth in telemetry if enabled
+        if (telemetry_ && queue_) {
+            telemetry_->metrics().set_queue_depth(queue_->size());
+        }
+        
         if (msg) {
             // Capture receive time before pop (msg may be invalidated)
             auto recv_time = msg->receive_time;
@@ -537,6 +587,12 @@ void KrakenClient::Impl::dispatcher_loop() {
                         std::memory_order_relaxed)) {
                     break;
                 }
+            }
+            
+            // Update telemetry if enabled
+            if (telemetry_) {
+                telemetry_->metrics().increment_messages_processed();
+                telemetry_->metrics().record_latency_us(latency_us);
             }
         } else {
             // Queue empty - wait efficiently with condition variable
@@ -582,6 +638,11 @@ void KrakenClient::Impl::dispatch(Message& msg) {
                 if (msg.holds<OrderBook>()) {
                     const auto& book = msg.get<OrderBook>();
                     
+                    // Track checksum failures in telemetry
+                    if (telemetry_ && !book.is_valid) {
+                        telemetry_->metrics().increment_checksum_failures();
+                    }
+                    
                     // Store latest snapshot (for latest_book())
                     {
                         std::unique_lock snap_lock(snapshots_mutex_);
@@ -620,7 +681,12 @@ void KrakenClient::Impl::dispatch(Message& msg) {
     // Evaluate strategies OUTSIDE the lock to avoid blocking callbacks
     if (msg.type == MessageType::Ticker && msg.holds<Ticker>()) {
         try {
+            // Track number of alerts before evaluation
+            size_t alerts_before = strategy_engine_.count();
             strategy_engine_.evaluate(msg.get<Ticker>());
+            // If alerts fired, telemetry will be updated by alert callbacks
+            // For now, we track it by monitoring strategy count changes
+            // (Note: This is approximate - actual alert firing is tracked in alert callbacks)
         } catch (const std::exception& e) {
             // Strategy evaluation exception - notify via error callback
             safe_invoke_error_callback(ErrorCode::CallbackError, 
@@ -666,6 +732,11 @@ void KrakenClient::Impl::handle_reconnect() {
             } catch (...) {
                 // Callback threw - ignore
             }
+        }
+        
+        // Update telemetry if enabled
+        if (telemetry_) {
+            telemetry_->metrics().increment_reconnect_attempts();
         }
         
         // Wait before attempting reconnection
@@ -723,22 +794,36 @@ void KrakenClient::Impl::handle_reconnect() {
 
 Metrics KrakenClient::Impl::get_metrics() const {
     Metrics m;
-    m.messages_received = msg_received_.load(std::memory_order_relaxed);
-    m.messages_processed = msg_processed_.load(std::memory_order_relaxed);
-    m.messages_dropped = msg_dropped_.load(std::memory_order_relaxed);
     
-    // Queue size might not be thread-safe, but it's approximate anyway
-    // SPSC queue size() is typically safe for reading
-    if (queue_) {
-        m.queue_depth = queue_->size();
+    // If telemetry is enabled, prefer telemetry metrics (they're more comprehensive)
+    if (telemetry_) {
+        const auto& tel_metrics = telemetry_->metrics();
+        m.messages_received = tel_metrics.messages_received();
+        m.messages_processed = tel_metrics.messages_processed();
+        m.messages_dropped = tel_metrics.messages_dropped();
+        m.queue_depth = static_cast<size_t>(tel_metrics.queue_depth());
+        m.connection_state = static_cast<ConnectionState>(tel_metrics.connection_state());
+        m.latency_max_us = std::chrono::microseconds(tel_metrics.latency_max_us());
     } else {
-        m.queue_depth = 0;
+        // Fall back to direct atomic reads
+        m.messages_received = msg_received_.load(std::memory_order_relaxed);
+        m.messages_processed = msg_processed_.load(std::memory_order_relaxed);
+        m.messages_dropped = msg_dropped_.load(std::memory_order_relaxed);
+        
+        // Queue size might not be thread-safe, but it's approximate anyway
+        // SPSC queue size() is typically safe for reading
+        if (queue_) {
+            m.queue_depth = queue_->size();
+        } else {
+            m.queue_depth = 0;
+        }
+        
+        m.connection_state = state_.load(std::memory_order_relaxed);
+        m.latency_max_us = std::chrono::microseconds(
+            latency_max_us_.load(std::memory_order_relaxed)
+        );
     }
     
-    m.connection_state = state_.load(std::memory_order_relaxed);
-    m.latency_max_us = std::chrono::microseconds(
-        latency_max_us_.load(std::memory_order_relaxed)
-    );
     m.start_time = start_time_;
     return m;
 }

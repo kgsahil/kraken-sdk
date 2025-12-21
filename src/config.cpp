@@ -61,6 +61,11 @@ ClientConfig::Builder& ClientConfig::Builder::on_gap(GapCallback callback) {
     return *this;
 }
 
+ClientConfig::Builder& ClientConfig::Builder::telemetry(TelemetryConfig config) {
+    config_.telemetry_config_ = std::move(config);
+    return *this;
+}
+
 // Legacy methods (deprecated)
 ClientConfig::Builder& ClientConfig::Builder::reconnect_attempts(int attempts) {
     legacy_attempts_ = attempts;
