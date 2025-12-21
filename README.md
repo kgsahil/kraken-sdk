@@ -103,31 +103,37 @@ std::cout << "Messages/sec: " << metrics.messages_per_second() << std::endl;
 std::cout << "Max latency: " << metrics.latency_max_us.count() << " μs" << std::endl;
 ```
 
+**Two metrics systems:**
+- **Local API** (`get_metrics()`) - Immediate access for dashboards and debugging
+- **OpenTelemetry** - Interface defined for future integration with Prometheus/Jaeger
+
+See [docs/METRICS.md](docs/METRICS.md) for detailed metrics documentation.
+
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         KrakenClient                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
-│  │  I/O Thread  │───▶│  SPSC Queue  │───▶│  Dispatcher  │      │
-│  │  (Producer)  │    │  (Lock-free) │    │  (Consumer)  │      │
-│  └──────────────┘    └──────────────┘    └──────┬───────┘      │
-│         │                                       │               │
-│         ▼                                       ▼               │
-│  ┌──────────────┐                       ┌──────────────┐       │
-│  │  Connection  │                       │   Strategy   │       │
-│  │  (WebSocket) │                       │    Engine    │       │
-│  └──────────────┘                       └──────────────┘       │
-│                                                 │               │
-│                                                 ▼               │
-│                                         ┌──────────────┐       │
-│                                         │  Callbacks   │       │
-│                                         └──────────────┘       │
-└─────────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────┐
+│                         KRAKEN SDK                                  │
+├────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
+│   │   WebSocket  │     │  Lock-Free   │     │  Dispatcher  │       │
+│   │   I/O Thread │────▶│  SPSC Queue  │────▶│    Thread    │       │
+│   │   (Producer) │     │  (88M ops/s) │     │  (Consumer)  │       │
+│   └──────────────┘     └──────────────┘     └──────┬───────┘       │
+│          │                                         │                │
+│          │              ┌──────────────────────────┼────────┐      │
+│          │              │                          ▼        │      │
+│          │              │   ┌──────────────┐  ┌────────────┐│      │
+│          ▼              │   │   Strategy   │  │    User    ││      │
+│   ┌──────────────┐      │   │    Engine    │  │  Callbacks ││      │
+│   │    Kraken    │      │   │ (Alerts)     │  │            ││      │
+│   │   Exchange   │      │   └──────────────┘  └────────────┘│      │
+│   └──────────────┘      │         Your Trading Logic        │      │
+│                         └───────────────────────────────────┘      │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Design Decisions
