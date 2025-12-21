@@ -86,6 +86,9 @@ if(KRAKEN_BUILD_EXAMPLES)
 
     add_executable(orderbook examples/orderbook.cpp)
     target_link_libraries(orderbook PRIVATE kraken)
+
+    add_executable(telemetry examples/telemetry.cpp)
+    target_link_libraries(telemetry PRIVATE kraken)
 endif()
 
 # Tools
