@@ -1,41 +1,17 @@
-# 🏆 Kraken WebSocket SDK
+# Kraken WebSocket SDK
 
-<div align="center">
-
-**The only C++ SDK with built-in Trading Intelligence**
-
-[![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-17%20Passed-success.svg)](tests/)
-[![Latency](https://img.shields.io/badge/Latency-<1μs-brightgreen.svg)](docs/BENCHMARKS.md)
-
-*5 lines to connect. Infinite possibilities for traders.*
-
-</div>
-
----
-
-## 🚀 Why This SDK Wins
-
-| What Others Do | What We Do |
-|----------------|------------|
-| Stream data | **Stream data + Built-in alert strategies** |
-| Parse JSON | **Parse JSON in 1.8μs (1000x faster than 1ms)** |
-| Use mutexes | **Lock-free SPSC queue (88M ops/sec)** |
-| Drop messages | **Zero message drops, ever** |
-| No validation | **CRC32 order book checksum verification** |
-| No monitoring | **Live performance dashboard** |
-
----
-
-## ⚡ 5-Line Quickstart
+A production-grade C++ SDK for real-time market data streaming from Kraken Exchange.
 
 ```cpp
 #include <kraken/kraken.hpp>
 
 int main() {
     kraken::KrakenClient client;
-    client.on_ticker([](const auto& t) { std::cout << t.symbol << ": $" << t.last << "\n"; });
+    
+    client.on_ticker([](const kraken::Ticker& t) {
+        std::cout << t.symbol << ": $" << t.last << std::endl;
+    });
+    
     client.subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
     client.run();
 }
@@ -43,86 +19,48 @@ int main() {
 
 ---
 
-## 🎯 Killer Features
+## Features
 
-### 1. Trading Strategy Engine ⭐ UNIQUE
+### Real-Time Data Streaming
+Subscribe to tickers, trades, order books, and OHLC candles with automatic reconnection and resubscription.
 
-**No other SDK has this.** Apply strategies to market data, get alerts when conditions are met.
+### Trading Strategy Engine
+Built-in alert system that monitors market conditions and triggers callbacks:
 
 ```cpp
-// Price Alert - Trigger when BTC > $100,000
+// Price threshold alert
 auto alert = kraken::PriceAlert::Builder()
     .symbol("BTC/USD")
     .above(100000.0)
     .build();
 
 client.add_alert(alert, [](const kraken::Alert& a) {
-    send_telegram("🚨 BTC hit $" + std::to_string(a.price));
-    execute_trade();  // Your trading logic
+    std::cout << "Alert: " << a.message << std::endl;
 });
 ```
 
-**Built-in Strategies:**
-- `PriceAlert` - Trigger above/below price thresholds
-- `VolumeSpike` - Detect unusual volume (2x, 3x average)
-- `SpreadAlert` - Alert on tight/wide spreads
-- **Custom strategies** - Implement `AlertStrategy` interface
+Available strategies: `PriceAlert`, `VolumeSpike`, `SpreadAlert`, and extensible `AlertStrategy` base class.
 
-### 2. HFT-Grade Performance ⚡
-
-Verified with Google Benchmark (Release build):
-
-| Operation | Time | Throughput |
-|-----------|------|------------|
-| **JSON Parsing** | **1.8 μs** | 118 MB/s |
-| **Queue Push/Pop** | **11 ns** | 88M ops/sec |
-| **Order Book Update** | **51 ns** | 39M ops/sec |
-| **Checksum Calc** | **24 μs** | 42K ops/sec |
-
-**Result:** SDK handles 100,000+ messages/sec internally. Zero drops. Ever.
-
-### 3. Live Performance Dashboard 📊
-
-Real-time terminal UI - see exactly what's happening:
-
-```
-╔═══════════════════════════════════════════════════════════════╗
-║               KRAKEN SDK LIVE DASHBOARD                       ║
-╠═══════════════════════════════════════════════════════════════╣
-║ Status: 🟢 connected       Uptime: 00:15:32                   ║
-╠═══════════════════════════════════════════════════════════════╣
-║ Messages Received:  23,456        Messages/sec: 25.4          ║
-║ Messages Processed: 23,456        Queue Depth:  0             ║
-║ Messages Dropped:   0             Max Latency:  371 µs        ║
-╠═══════════════════════════════════════════════════════════════╣
-║  Symbol     │    Price    │    Bid      │    Ask      │ Sprd  ║
-╠═════════════╪═════════════╪═════════════╪═════════════╪═══════╣
-║ BTC/USD     │ $  97,117   │ $  97,116   │ $  97,118   │ $2.00 ║
-║ ETH/USD     │ $   3,456   │ $   3,455   │ $   3,457   │ $2.00 ║
-╚═══════════════════════════════════════════════════════════════╝
-```
-
-### 4. Order Book with Checksum Validation ✓
-
-Detect missed updates before they cost you money:
+### Order Book with Checksum Validation
+Reconstructs order books from incremental updates with CRC32 checksum verification:
 
 ```cpp
 client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
     if (!book.is_valid) {
-        std::cerr << "⚠️ CHECKSUM FAILED - Data corrupted!\n";
-        return;  // Don't trade on bad data
+        std::cerr << "Checksum mismatch - data corrupted" << std::endl;
+        return;
     }
     
-    double imbalance = book.imbalance(10);  // -1 to +1
-    if (imbalance > 0.5) {
-        // Strong buying pressure - 50% more bids than asks
-    }
+    double imbalance = book.imbalance(10);  // Bid/ask ratio
+    std::cout << "Spread: $" << book.spread() << std::endl;
 });
 ```
 
-### 5. Exponential Backoff & Gap Detection 🔄
+### Lock-Free Message Queue
+Uses [rigtorp/SPSCQueue](https://github.com/rigtorp/SPSCQueue) for zero-contention message passing between I/O and dispatcher threads.
 
-Production-ready reconnection with jitter:
+### Exponential Backoff
+Production-ready reconnection with configurable strategy:
 
 ```cpp
 auto config = kraken::ClientConfig::Builder()
@@ -132,129 +70,137 @@ auto config = kraken::ClientConfig::Builder()
         .max_attempts(20)
         .jitter_factor(0.2)
         .build())
+    .build();
+```
+
+### Message Gap Detection
+Tracks sequence numbers per channel/symbol to detect missed messages:
+
+```cpp
+auto config = kraken::ClientConfig::Builder()
     .enable_gap_detection(true)
     .on_gap([](const kraken::GapInfo& gap) {
-        std::cerr << "⚠️ Missed " << gap.gap_size << " messages!\n";
+        std::cerr << "Missed " << gap.gap_size << " messages" << std::endl;
     })
     .build();
 ```
 
-### 6. Web-Ready JSON Serialization 🌐
-
-All data types serialize to JSON for dashboards and APIs:
+### JSON Serialization
+All data types serialize to JSON for web integration:
 
 ```cpp
-client.on_ticker([&websocket](const kraken::Ticker& t) {
-    websocket.broadcast(t.to_json());
-    // {"symbol":"BTC/USD","bid":97116,"ask":97118,"last":97117,...}
+client.on_ticker([](const kraken::Ticker& t) {
+    websocket_server.broadcast(t.to_json());
 });
+```
 
+### Performance Monitoring
+Real-time metrics including message counts, latency, and queue depth:
+
+```cpp
 auto metrics = client.get_metrics();
-redis.publish("metrics", metrics.to_json());
+std::cout << "Messages/sec: " << metrics.messages_per_second() << std::endl;
+std::cout << "Max latency: " << metrics.latency_max_us.count() << " μs" << std::endl;
 ```
 
 ---
 
-## 🏗️ Production Architecture
+## Architecture
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                         KRAKEN SDK                                  │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
-│   │   WebSocket  │     │  Lock-Free   │     │  Dispatcher  │       │
-│   │   I/O Thread │────▶│  SPSC Queue  │────▶│    Thread    │       │
-│   │   (Producer) │     │  (88M ops/s) │     │  (Consumer)  │       │
-│   └──────────────┘     └──────────────┘     └──────┬───────┘       │
-│          │                                         │                │
-│          │              ┌──────────────────────────┼────────┐      │
-│          │              │                          ▼        │      │
-│          │              │   ┌──────────────┐  ┌────────────┐│      │
-│          ▼              │   │   Strategy   │  │    User    ││      │
-│   ┌──────────────┐      │   │    Engine    │  │  Callbacks ││      │
-│   │    Kraken    │      │   │ (Alerts)     │  │            ││      │
-│   │   Exchange   │      │   └──────────────┘  └────────────┘│      │
-│   └──────────────┘      │         Your Trading Logic        │      │
-│                         └───────────────────────────────────┘      │
-└────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         KrakenClient                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐      │
+│  │  I/O Thread  │───▶│  SPSC Queue  │───▶│  Dispatcher  │      │
+│  │  (Producer)  │    │  (Lock-free) │    │  (Consumer)  │      │
+│  └──────────────┘    └──────────────┘    └──────┬───────┘      │
+│         │                                       │               │
+│         ▼                                       ▼               │
+│  ┌──────────────┐                       ┌──────────────┐       │
+│  │  Connection  │                       │   Strategy   │       │
+│  │  (WebSocket) │                       │    Engine    │       │
+│  └──────────────┘                       └──────────────┘       │
+│                                                 │               │
+│                                                 ▼               │
+│                                         ┌──────────────┐       │
+│                                         │  Callbacks   │       │
+│                                         └──────────────┘       │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-**Design Patterns Used:**
-- **PIMPL** - ABI stability, hide dependencies
-- **Builder** - Fluent configuration
-- **Strategy** - Custom alert strategies
-- **Reactor** - Two-thread event processing
-- **RAII** - Automatic resource management
+### Design Decisions
+
+| Pattern | Purpose |
+|---------|---------|
+| **PIMPL** | ABI stability, hide implementation dependencies |
+| **Builder** | Fluent, self-documenting configuration |
+| **Strategy** | Extensible alert system |
+| **Two-Thread Reactor** | I/O never blocks callbacks |
+| **RAII** | Automatic resource management |
+
+### Implementation Details
+
+| Component | Implementation |
+|-----------|----------------|
+| WebSocket | Boost.Beast with TLS |
+| JSON Parsing | RapidJSON (zero-copy) |
+| Message Queue | rigtorp/SPSCQueue (lock-free) |
+| Order Book | `std::map` for O(log n) updates |
+| Metrics | `std::atomic` for lock-free updates |
+| Threading | `std::condition_variable` for efficient wake-up |
 
 ---
 
-## 📊 Benchmark Proof
+## Performance
 
-All benchmarks verified with Google Benchmark in Release mode:
+Benchmarked with Google Benchmark (Release build):
 
-```bash
-$ ./bench_parser
-BM_ParseTicker              3072 ns    (88 MB/s)
-BM_ParseTrade               1953 ns    (95 MB/s)
-BM_ParseBook                1807 ns   (118 MB/s)
-
-$ ./bench_orderbook
-BM_BookEngineApplyUpdate/1    51 ns    (39M ops/s)
-BM_BookEngineApplyUpdate/8   139 ns   (115M ops/s)
-
-$ ./bench_queue
-BM_QueuePush                  11 ns    (88M ops/s)
-BM_QueuePop                   13 ns    (75M ops/s)
-```
+| Operation | Time |
+|-----------|------|
+| JSON Parsing | 1.8 - 3.1 μs |
+| Queue Push/Pop | 11 - 13 ns |
+| Order Book Update | 51 ns (single level) |
+| Checksum Calculation | 24 μs |
 
 ---
 
-## 🛠️ Quick Build (2 minutes)
+## Installation
+
+### Requirements
+- C++17 compiler (GCC 9+, Clang 10+)
+- CMake 3.16+
+- Boost 1.70+ (system component)
+- OpenSSL 1.1.1+
+
+### Build
 
 ```bash
 # Ubuntu/WSL
 sudo apt-get install -y build-essential cmake libssl-dev libboost-system-dev
 
-# Build
 git clone https://github.com/kgsahil/kraken-sdk.git
-cd kraken-sdk && mkdir build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DKRAKEN_BUILD_TOOLS=ON
+cd kraken-sdk
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
-
-# Try it!
-./quickstart      # Basic demo
-./strategies      # Alert strategies
-./dashboard       # Live performance
 ```
 
----
-
-## 🧪 Comprehensive Testing
-
-**17 test suites, 100% passing:**
+### Run Examples
 
 ```bash
-$ ctest --output-on-failure
- 1/17 test_strategies ............ Passed
- 2/17 test_book_checksum ......... Passed
- 3/17 test_connection ............ Passed
- ...
-17/17 test_telemetry ............. Passed
-
-100% tests passed, 0 tests failed out of 17
+./quickstart     # Basic ticker streaming
+./strategies     # Alert strategies demo
+./dashboard      # Live performance UI
+./orderbook      # Order book with checksum
 ```
-
-**Test Coverage:**
-- Unit tests (parser, config, subscription, metrics)
-- Integration tests (message flow, client lifecycle)
-- Thread safety tests (concurrent access, race conditions)
-- Edge case tests (malformed data, empty inputs)
-- Exception safety tests (callback errors, network failures)
 
 ---
 
-## 📚 Complete API
+## API Overview
+
+### KrakenClient
 
 ```cpp
 class KrakenClient {
@@ -264,95 +210,107 @@ class KrakenClient {
     void on_book(BookCallback);
     void on_ohlc(OHLCCallback);
     void on_error(ErrorCallback);
-    void on_connection_state(StateCallback);
+    void on_connection_state(ConnectionStateCallback);
     
     // Subscriptions
-    Subscription subscribe(Channel, vector<string> symbols);
-    Subscription subscribe_book(vector<string> symbols, int depth = 10);
+    Subscription subscribe(Channel, std::vector<std::string> symbols);
+    Subscription subscribe_book(std::vector<std::string> symbols, int depth = 10);
     
-    // Strategies ⭐
-    int add_alert(shared_ptr<AlertStrategy>, AlertCallback);
-    void remove_alert(int alert_id);
+    // Strategies
+    int add_alert(std::shared_ptr<AlertStrategy>, AlertCallback);
+    void remove_alert(int id);
     
-    // Snapshots (thread-safe)
-    optional<Ticker> latest_ticker(const string& symbol);
-    optional<OrderBook> latest_book(const string& symbol);
+    // Snapshots
+    std::optional<Ticker> latest_ticker(const std::string& symbol);
+    std::optional<OrderBook> latest_book(const std::string& symbol);
     
-    // Event loop
-    void run();        // Blocking
-    void run_async();  // Non-blocking
-    void stop();       // Thread-safe
+    // Event Loop
+    void run();       // Blocking
+    void run_async(); // Non-blocking
+    void stop();
     
     // Metrics
     Metrics get_metrics();
 };
 ```
 
+### Subscription Handle
+
+```cpp
+Subscription sub = client.subscribe(Channel::Ticker, {"BTC/USD"});
+
+sub.pause();                      // Stop receiving updates
+sub.resume();                     // Resume updates
+sub.add_symbols({"ETH/USD"});     // Add symbols
+sub.remove_symbols({"BTC/USD"});  // Remove symbols
+sub.unsubscribe();                // Unsubscribe completely
+```
+
+### Data Types
+
+```cpp
+struct Ticker {
+    std::string symbol;
+    double bid, ask, last;
+    double volume_24h, high_24h, low_24h;
+    
+    double spread();
+    double mid_price();
+    std::string to_json();
+};
+
+struct OrderBook {
+    std::vector<PriceLevel> bids, asks;
+    bool is_valid;  // CRC32 passed
+    
+    double spread();
+    double imbalance(size_t depth);
+    std::string to_json(size_t levels);
+};
+```
+
 ---
 
-## 🆚 Competitive Edge
+## Testing
 
-| Feature | Other C++ SDKs | Rust SDK | **This SDK** |
-|---------|---------------|----------|--------------|
-| Trading Strategies | ❌ | ❌ | ✅ **Unique** |
-| Performance Dashboard | ❌ | ❌ | ✅ **Unique** |
-| Lock-free Queue | ❌ | ✅ | ✅ |
-| Order Book Checksum | ❌ | ✅ | ✅ |
-| Gap Detection | ❌ | ❌ | ✅ |
-| Exponential Backoff | ❌ | ✅ | ✅ |
-| JSON Serialization | ❌ | ❌ | ✅ |
-| Google Benchmarks | ❌ | ❌ | ✅ |
-| 17 Test Suites | ❌ | ❌ | ✅ |
+```bash
+cd build
+ctest --output-on-failure
+```
+
+17 test suites covering unit, integration, thread safety, edge cases, and exception safety.
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 kraken-sdk/
-├── include/kraken/     # Public API (single #include <kraken/kraken.hpp>)
-├── src/                # Implementation (PIMPL hidden)
-├── examples/           # quickstart, strategies, dashboard, orderbook
-├── tools/              # benchmark_integration
-├── benchmarks/         # Google Benchmark suites
-├── tests/              # 17 GoogleTest suites
-├── docs/               # Technical documentation
-└── README.md
+├── include/kraken/    # Public API
+│   ├── kraken.hpp     # Main include
+│   ├── client.hpp     # KrakenClient
+│   ├── config.hpp     # ClientConfig
+│   ├── types.hpp      # Data types
+│   ├── strategies.hpp # Alert strategies
+│   ├── backoff.hpp    # Reconnection strategies
+│   └── gap_detector.hpp
+├── src/               # Implementation (PIMPL)
+├── examples/          # Demo applications
+├── tests/             # GoogleTest suites
+├── benchmarks/        # Google Benchmark suites
+└── docs/              # Documentation
 ```
 
 ---
 
-## 🎓 Why This Architecture?
+## License
 
-| Decision | Why |
-|----------|-----|
-| **Two-thread reactor** | I/O never blocks callbacks |
-| **Lock-free SPSC** | Zero contention, predictable latency |
-| **`std::variant` messages** | 75% memory reduction |
-| **PIMPL pattern** | ABI stability, fast compilation |
-| **Builder pattern** | Self-documenting configuration |
-| **Strategy pattern** | Extensible alert system |
+MIT License - see [LICENSE](LICENSE)
 
 ---
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - [rigtorp/SPSCQueue](https://github.com/rigtorp/SPSCQueue) - Lock-free queue
-- [RapidJSON](https://github.com/Tencent/rapidjson) - Fast JSON parsing  
+- [RapidJSON](https://github.com/Tencent/rapidjson) - JSON parsing
 - [Boost.Beast](https://github.com/boostorg/beast) - WebSocket client
-- [Google Benchmark](https://github.com/google/benchmark) - Microbenchmarks
-- [GoogleTest](https://github.com/google/googletest) - Testing framework
-
----
-
-<div align="center">
-
-## 🏆 Built for Kraken Forge Hackathon 2025
-
-**This SDK transforms raw market data into actionable trading intelligence.**
-
-*Not just a data pipe. A trading platform.*
-
-[![GitHub](https://img.shields.io/badge/GitHub-kgsahil%2Fkraken--sdk-blue)](https://github.com/kgsahil/kraken-sdk)
-
-</div>
