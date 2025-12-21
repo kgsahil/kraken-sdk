@@ -157,8 +157,8 @@ Or run individual tests:
 
 ## Test Statistics
 
-- **Total Test Suites:** 13
-- **Total Test Cases:** ~160+
+- **Total Test Suites:** 14
+- **Total Test Cases:** 166
 - **Coverage Areas:**
   - ✅ Happy paths
   - ✅ Error handling

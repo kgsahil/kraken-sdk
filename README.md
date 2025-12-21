@@ -153,6 +153,88 @@ Real-time terminal dashboard showing SDK performance:
 
 ---
 
+## 🌐 Web Integration (JSON Serialization)
+
+All data types include `to_json()` methods for easy integration with web dashboards and APIs:
+
+```cpp
+client.on_ticker([](const kraken::Ticker& t) {
+    // Send to WebSocket server, REST API, or message queue
+    std::string json = t.to_json();
+    // {"symbol":"BTC/USD","bid":88117.10,"ask":88117.20,"last":88117.20,...}
+    
+    websocket_server.broadcast(json);
+});
+
+client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
+    // Get top 10 levels as JSON
+    std::string json = book.to_json(10);
+    // {"symbol":"BTC/USD","bids":[[88117.10,1.5],...],"asks":[[88117.20,2.0],...]}
+    
+    redis_client.publish("orderbook:" + symbol, json);
+});
+```
+
+### Order Book Analytics
+
+```cpp
+// Built-in liquidity and imbalance calculations
+double bid_liq = book.total_bid_liquidity(10);   // Sum of top 10 bid quantities
+double ask_liq = book.total_ask_liquidity(10);   // Sum of top 10 ask quantities
+double imbalance = book.imbalance(10);           // -1 to +1 (positive = more bids)
+
+// Use in trading logic
+if (imbalance > 0.3) {
+    // Strong buying pressure detected
+}
+```
+
+### Metrics for Monitoring
+
+```cpp
+auto metrics = client.get_metrics();
+std::cout << metrics.to_json() << std::endl;
+// {"messages_received":23456,"messages_processed":23456,"queue_depth":0,...}
+```
+
+---
+
+## 🎯 SDK Scope
+
+### ✅ What This SDK Does
+
+| Capability | Status |
+|------------|--------|
+| Real-time ticker streaming | ✅ |
+| Real-time trade streaming | ✅ |
+| Order book with checksum validation | ✅ |
+| OHLC candle streaming | ✅ |
+| Price/volume/spread alerts | ✅ |
+| Custom strategy engine | ✅ |
+| Performance metrics | ✅ |
+| JSON serialization | ✅ |
+| Auto-reconnection | ✅ |
+
+### ❌ What This SDK Does NOT Do
+
+| Capability | Status | Notes |
+|------------|--------|-------|
+| Order placement | ❌ | Use Kraken REST API |
+| Order cancellation | ❌ | Use Kraken REST API |
+| Account balance | ❌ | Use Kraken REST API |
+| Position tracking | ❌ | Implement in your trading bot |
+| Historical data | ❌ | Use Kraken REST API |
+
+**This is a market data SDK**, not a full trading system. Use it to:
+- Feed real-time data to trading bots
+- Power web dashboards
+- Trigger alerts and signals
+- Monitor market conditions
+
+For order execution, pair this SDK with the [Kraken REST API](https://docs.kraken.com/rest/).
+
+---
+
 ## 🏗 Architecture
 
 ```
@@ -197,19 +279,38 @@ Real-time terminal dashboard showing SDK performance:
 
 Benchmarked on Ubuntu 22.04 with live Kraken API:
 
-| Metric | Result |
+| Metric | Verified Result |
 |--------|--------|
-| **Max Latency** | **< 1 ms** (371 µs typical) |
+| **JSON Parsing** | **1.0-1.75 µs** |
+| **Queue Operations** | **11-13 ns** (75-88M ops/sec) |
+| **Order Book Updates** | **< 2 µs** for 100 levels |
 | **Messages Dropped** | **0** (even under load) |
 | **Queue Capacity** | 65,536 (configurable) |
 | **Throughput** | Limited by Kraken API rate (~15-20 msg/sec public) |
 | **Memory per Message** | ~200 bytes (`std::variant`) |
 
-Run benchmarks:
+*All benchmarks verified with Google Benchmark in Release mode. See [docs/BENCHMARK_RESULTS.md](docs/BENCHMARK_RESULTS.md).*
+
+### Integration Benchmark (Live API)
+
+Run end-to-end performance test:
 ```bash
 cd build
-./benchmark 30  # Run for 30 seconds
+./benchmark_integration 30  # Run for 30 seconds
 ```
+
+### Microbenchmarks (Google Benchmark)
+
+Component-level performance metrics:
+```bash
+cd build
+./bench_parser      # JSON parsing performance
+./bench_queue        # SPSC queue throughput
+./bench_orderbook    # Order book operations
+./bench_checksum     # CRC32 checksum calculation
+```
+
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed benchmark documentation.
 
 ---
 

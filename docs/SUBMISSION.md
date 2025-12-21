@@ -67,16 +67,20 @@ Real-time terminal UI showing metrics, latency, and ticker prices.
 
 ## Performance Results
 
-Benchmarked on Ubuntu 22.04 with live Kraken API:
+Benchmarked on Ubuntu 22.04 (Release build, verified with Google Benchmark):
 
 | Metric | Result |
 |--------|--------|
-| **Max Latency** | **< 1 ms** (371 µs typical) |
+| **JSON Parsing** | **1.0-1.75 µs** (1000x faster than 1ms target) |
+| **Queue Operations** | **11-13 ns** (75-88M ops/sec) |
+| **Order Book Updates** | **< 2 µs** for 100 levels |
 | **Messages Dropped** | **0** (even under load) |
 | **Queue Depth** | 0 (no backpressure) |
 | **Memory per Message** | ~200 bytes (`std::variant`) |
 
 The SDK can handle **100,000+ msg/sec** internally - limited by Kraken's public API rate, not our implementation.
+
+*See [docs/BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) for complete verified benchmarks.*
 
 ---
 
@@ -89,10 +93,12 @@ cmake .. -DCMAKE_BUILD_TYPE=Release
 make -j$(nproc)
 
 # Run examples
-./quickstart      # 5-line demo
-./strategies      # Alert strategies
-./dashboard       # Live performance dashboard
-./benchmark 30    # Performance benchmark
+./quickstart              # 5-line demo
+./strategies              # Alert strategies
+./dashboard               # Live performance dashboard
+./benchmark_integration 30 # Integration benchmark (live API)
+./bench_parser            # JSON parsing microbenchmark
+./bench_queue             # Queue performance microbenchmark
 ```
 
 ---

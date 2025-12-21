@@ -90,8 +90,33 @@ endif()
 
 # Tools
 if(KRAKEN_BUILD_TOOLS)
-    add_executable(benchmark tools/benchmark.cpp)
-    target_link_libraries(benchmark PRIVATE kraken)
+    # Integration benchmark (end-to-end with live API)
+    add_executable(benchmark_integration tools/benchmark.cpp)
+    target_link_libraries(benchmark_integration PRIVATE kraken)
+    
+    # Google Benchmark for microbenchmarks
+    FetchContent_Declare(
+        googlebenchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG v1.8.3
+    )
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    FetchContent_MakeAvailable(googlebenchmark)
+    
+    # Microbenchmark executables
+    function(add_microbenchmark name)
+        add_executable(${name} benchmarks/${name}.cpp)
+        target_link_libraries(${name} PRIVATE kraken benchmark::benchmark benchmark::benchmark_main)
+        target_include_directories(${name} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${SPSCQueue_SOURCE_DIR}/include
+        )
+    endfunction()
+    
+    add_microbenchmark(bench_parser)
+    add_microbenchmark(bench_queue)
+    add_microbenchmark(bench_orderbook)
+    add_microbenchmark(bench_checksum)
 endif()
 
 # Tests

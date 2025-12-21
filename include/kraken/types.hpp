@@ -74,8 +74,24 @@ struct Ticker {
     /// Calculate bid-ask spread
     double spread() const { return ask - bid; }
     
+    /// Calculate spread as percentage of mid price
+    double spread_percent() const { 
+        double mid = mid_price();
+        return mid > 0 ? (spread() / mid) * 100.0 : 0.0;
+    }
+    
     /// Calculate mid price
     double mid_price() const { return (bid + ask) / 2.0; }
+    
+    /// Convert to JSON string (for web integration)
+    std::string to_json() const {
+        char buf[512];
+        snprintf(buf, sizeof(buf),
+            R"({"symbol":"%s","bid":%.8f,"ask":%.8f,"last":%.8f,"volume_24h":%.2f,"high_24h":%.8f,"low_24h":%.8f,"spread":%.8f,"mid":%.8f,"timestamp":"%s"})",
+            symbol.c_str(), bid, ask, last, volume_24h, high_24h, low_24h, 
+            spread(), mid_price(), timestamp.c_str());
+        return std::string(buf);
+    }
 };
 
 /// Trade data
@@ -85,6 +101,19 @@ struct Trade {
     double quantity = 0.0;
     Side side = Side::Buy;
     std::string timestamp;
+    
+    /// Get trade value (price × quantity)
+    double value() const { return price * quantity; }
+    
+    /// Convert to JSON string (for web integration)
+    std::string to_json() const {
+        char buf[256];
+        const char* side_str = (side == Side::Buy) ? "buy" : "sell";
+        snprintf(buf, sizeof(buf),
+            R"({"symbol":"%s","price":%.8f,"quantity":%.8f,"side":"%s","value":%.2f,"timestamp":"%s"})",
+            symbol.c_str(), price, quantity, side_str, value(), timestamp.c_str());
+        return std::string(buf);
+    }
 };
 
 /// Price level in order book
@@ -121,6 +150,56 @@ struct OrderBook {
     double mid_price() const {
         if (bids.empty() || asks.empty()) return 0.0;
         return (bids.front().price + asks.front().price) / 2.0;
+    }
+    
+    /// Calculate total bid liquidity up to a depth
+    double total_bid_liquidity(size_t depth = 10) const {
+        double total = 0.0;
+        size_t n = std::min(depth, bids.size());
+        for (size_t i = 0; i < n; ++i) total += bids[i].quantity;
+        return total;
+    }
+    
+    /// Calculate total ask liquidity up to a depth
+    double total_ask_liquidity(size_t depth = 10) const {
+        double total = 0.0;
+        size_t n = std::min(depth, asks.size());
+        for (size_t i = 0; i < n; ++i) total += asks[i].quantity;
+        return total;
+    }
+    
+    /// Get bid/ask imbalance ratio (-1 to +1, positive = more bids)
+    double imbalance(size_t depth = 10) const {
+        double bid_liq = total_bid_liquidity(depth);
+        double ask_liq = total_ask_liquidity(depth);
+        double total = bid_liq + ask_liq;
+        if (total < 0.0001) return 0.0;
+        return (bid_liq - ask_liq) / total;
+    }
+    
+    /// Convert to JSON string (for web integration, top N levels)
+    std::string to_json(size_t levels = 10) const {
+        std::string json = R"({"symbol":")" + symbol + R"(","bids":[)";
+        size_t n = std::min(levels, bids.size());
+        for (size_t i = 0; i < n; ++i) {
+            if (i > 0) json += ",";
+            char buf[64];
+            snprintf(buf, sizeof(buf), "[%.8f,%.8f]", bids[i].price, bids[i].quantity);
+            json += buf;
+        }
+        json += R"(],"asks":[)";
+        n = std::min(levels, asks.size());
+        for (size_t i = 0; i < n; ++i) {
+            if (i > 0) json += ",";
+            char buf[64];
+            snprintf(buf, sizeof(buf), "[%.8f,%.8f]", asks[i].price, asks[i].quantity);
+            json += buf;
+        }
+        char buf[128];
+        snprintf(buf, sizeof(buf), R"(],"spread":%.8f,"mid":%.8f,"imbalance":%.4f,"valid":%s})",
+            spread(), mid_price(), imbalance(levels), is_valid ? "true" : "false");
+        json += buf;
+        return json;
     }
 };
 

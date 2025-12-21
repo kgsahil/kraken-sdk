@@ -23,6 +23,18 @@ struct Alert {
     double price = 0.0;
     std::string message;
     std::chrono::system_clock::time_point timestamp;
+    
+    /// Convert to JSON string (for web integration)
+    std::string to_json() const {
+        auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(
+            timestamp.time_since_epoch()).count();
+        char buf[512];
+        snprintf(buf, sizeof(buf),
+            R"({"strategy":"%s","symbol":"%s","price":%.8f,"message":"%s","timestamp_ms":%lld})",
+            strategy_name.c_str(), symbol.c_str(), price, message.c_str(),
+            static_cast<long long>(ts));
+        return std::string(buf);
+    }
 };
 
 /// Callback type for alerts

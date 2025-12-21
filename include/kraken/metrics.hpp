@@ -41,6 +41,22 @@ struct Metrics {
         snprintf(buf, sizeof(buf), "%02d:%02d:%02d", hours, mins, s);
         return std::string(buf);
     }
+    
+    /// Convert to JSON string (for web dashboards)
+    std::string to_json() const {
+        char buf[512];
+        snprintf(buf, sizeof(buf),
+            R"({"messages_received":%llu,"messages_processed":%llu,"messages_dropped":%llu,"queue_depth":%zu,"connection_state":"%s","latency_max_us":%lld,"uptime_seconds":%lld,"msg_per_sec":%.2f})",
+            static_cast<unsigned long long>(messages_received),
+            static_cast<unsigned long long>(messages_processed),
+            static_cast<unsigned long long>(messages_dropped),
+            queue_depth,
+            to_string(connection_state),
+            static_cast<long long>(latency_max_us.count()),
+            static_cast<long long>(uptime().count()),
+            messages_per_second());
+        return std::string(buf);
+    }
 };
 
 } // namespace kraken
