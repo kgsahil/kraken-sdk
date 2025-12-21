@@ -1,243 +1,180 @@
-# Performance Benchmarks
+# Benchmark Suite
 
-## Overview
-
-The SDK includes two types of benchmarks:
-
-1. **Integration Benchmark** (`tools/benchmark.cpp`) - End-to-end performance with live Kraken API
-2. **Microbenchmarks** (Google Benchmark) - Component-level performance metrics
+This SDK includes comprehensive benchmarking using [Google Benchmark](https://github.com/google/benchmark).
 
 ---
 
-## Integration Benchmark
+## Quick Run
 
-**Purpose**: Measure real-world performance with live Kraken WebSocket API.
-
-**Usage**:
 ```bash
-cd build
-./benchmark [duration_seconds]
+# Build in Release mode (required for accurate benchmarks)
+mkdir build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DKRAKEN_BUILD_TOOLS=ON
+make -j$(nproc)
+
+# Run all benchmarks
+./bench_parser      # JSON parsing
+./bench_queue       # Lock-free queue
+./bench_orderbook   # Order book operations
+./bench_checksum    # CRC32 checksum
+./benchmark_integration 30  # Live API test (30 seconds)
 ```
 
-**What it measures**:
-- Total messages processed
+---
+
+## Benchmark Suites
+
+### 1. Parser Benchmarks (`bench_parser`)
+
+Tests JSON parsing performance with realistic Kraken message payloads.
+
+| Benchmark | What it measures |
+|-----------|------------------|
+| `BM_ParseTicker` | Parse ticker JSON to `Ticker` struct |
+| `BM_ParseTrade` | Parse trade JSON to `Trade` struct |
+| `BM_ParseBook` | Parse order book JSON to `OrderBook` |
+| `BM_BuildSubscribeMessage` | Build subscription request JSON |
+| `BM_BuildUnsubscribeMessage` | Build unsubscribe request JSON |
+
+**Expected Results:** 1-3 μs per parse, 100+ MB/s throughput
+
+---
+
+### 2. Queue Benchmarks (`bench_queue`)
+
+Tests the lock-free SPSC queue (rigtorp/SPSCQueue).
+
+| Benchmark | What it measures |
+|-----------|------------------|
+| `BM_QueuePush` | Time to push a message |
+| `BM_QueuePop` | Time to pop a message |
+
+**Expected Results:** 10-15 ns per operation, 70-90 million ops/sec
+
+---
+
+### 3. Order Book Benchmarks (`bench_orderbook`)
+
+Tests order book management with realistic workloads.
+
+| Benchmark | What it measures |
+|-----------|------------------|
+| `BM_BookEngineApplySnapshot/N` | Apply N-level snapshot |
+| `BM_BookEngineApplyUpdate/N` | Apply N incremental updates |
+| `BM_BookEngineGet/N` | Get order book with N levels |
+
+**Expected Results:** 
+- Single update: ~50 ns
+- 100 updates: ~2 μs
+- O(log n) complexity verified
+
+---
+
+### 4. Checksum Benchmarks (`bench_checksum`)
+
+Tests CRC32 checksum calculation for order book validation.
+
+| Benchmark | What it measures |
+|-----------|------------------|
+| `BM_CalculateChecksum/N` | Calculate checksum for N-level book |
+| `BM_CalculateChecksumLargeBook` | Checksum for 100+ level book |
+
+**Expected Results:** ~24 μs for standard 10-level book
+
+---
+
+### 5. Integration Benchmark (`benchmark_integration`)
+
+Tests the complete SDK with live Kraken API.
+
+```bash
+./benchmark_integration 60  # Run for 60 seconds
+```
+
+**Measures:**
+- End-to-end latency (WebSocket → callback)
 - Messages per second
-- Messages dropped
-- Max latency
-- Queue depth
-- Channel breakdown (ticker/trade/book)
+- Queue depth under load
+- Message drop rate
 
-**Example Output**:
-```
-╔═══════════════════════════════════════════════════════════════╗
-║                       BENCHMARK RESULTS                       ║
-╠═══════════════════════════════════════════════════════════════╣
-║ Duration:                 30.0 seconds                        ║
-║ Total Messages:             450                                ║
-║ Throughput:                 15.0 msg/sec                       ║
-║ Messages Dropped:             0                                ║
-║ Max Latency:                371 µs                             ║
-╚═══════════════════════════════════════════════════════════════╝
-```
+**Expected Results:**
+- Latency: < 1 ms (typically 200-500 μs)
+- Drop rate: 0%
+- Queue depth: 0-2 (no backpressure)
 
 ---
 
-## Microbenchmarks (Google Benchmark)
+## Interpreting Results
 
-**Purpose**: Measure individual component performance in isolation.
+### Time Units
 
-### Available Benchmarks
+| Unit | Meaning |
+|------|---------|
+| ns | Nanoseconds (10⁻⁹ seconds) |
+| μs | Microseconds (10⁻⁶ seconds) |
+| ms | Milliseconds (10⁻³ seconds) |
 
-#### 1. `bench_parser` - JSON Parsing Performance
+### Throughput Metrics
 
-Measures:
-- Ticker message parsing
-- Trade message parsing
-- Book message parsing
-- Subscribe/unsubscribe message building
-
-**Usage**:
-```bash
-cd build
-./bench_parser
-```
-
-**Metrics**:
-- Time per operation (nanoseconds)
-- Throughput (operations/second)
-- Bytes processed
-
-#### 2. `bench_queue` - SPSC Queue Performance
-
-Measures:
-- Queue push performance
-- Queue pop performance
-- Queue throughput (producer/consumer)
-
-**Usage**:
-```bash
-cd build
-./bench_queue
-```
-
-**Metrics**:
-- Latency per operation
-- Throughput (messages/second)
-- Scalability with different queue sizes
-
-#### 3. `bench_orderbook` - Order Book Operations
-
-Measures:
-- Snapshot application
-- Incremental update application
-- Book retrieval
-
-**Usage**:
-```bash
-cd build
-./bench_orderbook
-```
-
-**Metrics**:
-- Time per operation
-- Scalability with book size
-- O(log n) update performance
-
-#### 4. `bench_checksum` - CRC32 Checksum Calculation
-
-Measures:
-- Checksum calculation time
-- Scalability with book size
-
-**Usage**:
-```bash
-cd build
-./bench_checksum
-```
-
-**Metrics**:
-- Checksum calculation latency
-- Performance with large order books
+| Metric | Meaning |
+|--------|---------|
+| items_per_second | Operations per second |
+| bytes_per_second | Data throughput |
+| M/s | Million per second |
+| k/s | Thousand per second |
 
 ---
 
-## Running All Benchmarks
+## Optimization Tips
+
+### For Accurate Benchmarks
+
+1. **Use Release build** - Debug builds are 10-100x slower
+2. **Close other applications** - Minimize CPU contention
+3. **Run multiple times** - Check for consistency
+4. **Use `taskset`** - Pin to single CPU for reproducibility
 
 ```bash
-cd build
-
-# Integration benchmark (requires live API)
-./benchmark 30
-
-# Microbenchmarks (no API needed)
-./bench_parser
-./bench_queue
-./bench_orderbook
-./bench_checksum
+# Pin benchmark to CPU 0
+taskset -c 0 ./bench_parser
 ```
 
----
-
-## Benchmark Results (Example)
-
-### JSON Parsing
-```
-Benchmark                    Time             CPU   Iterations
----------------------------------------------------------------
-BM_ParseTicker            1234 ns         1234 ns       567890
-BM_ParseTrade             1456 ns         1456 ns       456789
-BM_ParseBook              2345 ns         2345 ns       234567
-BM_BuildSubscribeMessage    567 ns          567 ns      1234567
-```
-
-### Queue Performance
-```
-Benchmark                    Time             CPU   Iterations
----------------------------------------------------------------
-BM_QueuePush/64             456 ns          456 ns      1234567
-BM_QueuePush/1024           512 ns          512 ns      1098765
-BM_QueuePush/65536          678 ns          678 ns       987654
-BM_QueuePop/64              234 ns          234 ns      2345678
-BM_QueueThroughput        12345 ns        12345 ns        56789
-```
-
-### Order Book Operations
-```
-Benchmark                    Time             CPU   Iterations
----------------------------------------------------------------
-BM_BookEngineApplySnapshot/10    1234 ns         1234 ns       567890
-BM_BookEngineApplySnapshot/100   5678 ns         5678 ns       123456
-BM_BookEngineApplyUpdate/1       234 ns          234 ns      3456789
-BM_BookEngineApplyUpdate/10     1234 ns         1234 ns       567890
-BM_BookEngineGet/10              123 ns          123 ns      5678901
-```
-
----
-
-## Performance Targets (Verified Results)
-
-| Component | Target | Measured | Status |
-|-----------|--------|----------|--------|
-| JSON Parsing | < 2 µs | **1.0-1.75 µs** | ✅ |
-| Queue Push | < 1 µs | **11-13 ns** | 🚀 100x faster |
-| Queue Pop | < 0.5 µs | **11-17 ns** | 🚀 30x faster |
-| Book Update (10 levels) | < 5 µs | **671 ns** | ✅ |
-| Book Update (100 levels) | < 5 µs | **1.9 µs** | ✅ |
-| Checksum (100 levels) | < 10 µs | **15 µs** | ⚠️ Slightly over |
-
-*See [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) for complete verified results.*
-
----
-
-## Benchmarking Best Practices
-
-1. **Run in Release Mode**: Always use `-DCMAKE_BUILD_TYPE=Release`
-2. **Warm Up**: First few iterations may be slower due to cache warming
-3. **Multiple Runs**: Run benchmarks multiple times for consistency
-4. **System Load**: Run on idle system for accurate results
-5. **CPU Affinity**: Pin to specific CPU cores for consistent results
-
----
-
-## Continuous Benchmarking
-
-For CI/CD integration:
+### Environment Variables
 
 ```bash
-# Run all microbenchmarks and save results
-cd build
-./bench_parser --benchmark_format=json > parser_results.json
-./bench_queue --benchmark_format=json > queue_results.json
-./bench_orderbook --benchmark_format=json > orderbook_results.json
-./bench_checksum --benchmark_format=json > checksum_results.json
+# Disable CPU frequency scaling (requires root)
+echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+
+# Run with higher priority
+sudo nice -n -20 ./bench_parser
 ```
 
 ---
 
-## Comparing Results
+## Latest Results
 
-To compare before/after changes:
-
-```bash
-# Baseline
-./bench_parser --benchmark_out=baseline.json
-
-# After changes
-./bench_parser --benchmark_out=current.json
-
-# Compare (requires benchmark tools)
-benchmark/tools/compare.py baseline.json current.json
-```
+See [BENCHMARK_RESULTS.md](BENCHMARK_RESULTS.md) for detailed benchmark output.
 
 ---
 
-## Notes
+## Adding New Benchmarks
 
-- **Integration benchmark** requires live Kraken API connection
-- **Microbenchmarks** run in isolation (no network required)
-- Results may vary based on:
-  - CPU architecture
-  - Compiler optimizations
-  - System load
-  - Cache state
+```cpp
+#include <benchmark/benchmark.h>
+#include "your_component.hpp"
 
+static void BM_YourOperation(benchmark::State& state) {
+    // Setup (outside timing loop)
+    YourComponent component;
+    
+    for (auto _ : state) {
+        // Timed code
+        component.do_operation();
+    }
+    
+    // Report custom metrics
+    state.SetItemsProcessed(state.iterations());
+}
+
+BENCHMARK(BM_YourOperation);
+```

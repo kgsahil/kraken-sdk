@@ -1,8 +1,8 @@
 #include "connection.hpp"
 #include "kraken/error.hpp"
 
-#include <regex>
 #include <iostream>
+#include <cctype>
 
 namespace kraken {
 
@@ -19,17 +19,56 @@ Connection::~Connection() {
 }
 
 void Connection::parse_url(const std::string& url) {
+    // Optimized URL parsing without std::regex (faster construction)
     // Parse WebSocket URL: wss://host:port/path or wss://host/path
-    std::regex url_regex(R"(wss?://([^/:]+)(?::(\d+))?(/.*)?)", std::regex::icase);
-    std::smatch match;
     
-    if (!std::regex_match(url, match, url_regex)) {
+    // Find scheme
+    size_t scheme_end = url.find("://");
+    if (scheme_end == std::string::npos) {
         throw std::invalid_argument("Invalid WebSocket URL: " + url);
     }
     
-    host_ = match[1].str();
-    port_ = match[2].matched ? match[2].str() : "443";
-    path_ = match[3].matched ? match[3].str() : "/";
+    std::string scheme = url.substr(0, scheme_end);
+    // Convert to lowercase for comparison
+    for (char& c : scheme) c = std::tolower(static_cast<unsigned char>(c));
+    
+    if (scheme != "wss" && scheme != "ws") {
+        throw std::invalid_argument("Invalid WebSocket URL scheme: " + url);
+    }
+    
+    size_t host_start = scheme_end + 3;  // Skip "://"
+    
+    // Find host end (either ':', '/', or end of string)
+    size_t host_end = url.find_first_of(":/", host_start);
+    if (host_end == std::string::npos) {
+        host_end = url.length();
+    }
+    
+    if (host_end == host_start) {
+        throw std::invalid_argument("Invalid WebSocket URL: missing host: " + url);
+    }
+    
+    host_ = url.substr(host_start, host_end - host_start);
+    
+    // Parse port if present
+    if (host_end < url.length() && url[host_end] == ':') {
+        size_t port_start = host_end + 1;
+        size_t port_end = url.find('/', port_start);
+        if (port_end == std::string::npos) {
+            port_end = url.length();
+        }
+        port_ = url.substr(port_start, port_end - port_start);
+        host_end = port_end;
+    } else {
+        port_ = (scheme == "wss") ? "443" : "80";
+    }
+    
+    // Parse path
+    if (host_end < url.length() && url[host_end] == '/') {
+        path_ = url.substr(host_end);
+    } else {
+        path_ = "/";
+    }
 }
 
 void Connection::connect() {

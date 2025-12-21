@@ -9,6 +9,8 @@
 
 #include <memory>
 #include <future>
+#include <optional>
+#include <unordered_map>
 
 namespace kraken {
 
@@ -151,6 +153,30 @@ public:
     
     /// Get current metrics snapshot
     Metrics get_metrics() const;
+    
+    //--------------------------------------------------------------------------
+    // Data Snapshots (thread-safe)
+    //--------------------------------------------------------------------------
+    
+    /// Get the latest ticker for a symbol (thread-safe copy)
+    /// @param symbol Trading pair (e.g., "BTC/USD")
+    /// @return Latest ticker, or nullopt if not available
+    std::optional<Ticker> latest_ticker(const std::string& symbol) const;
+    
+    /// Get the latest order book for a symbol (thread-safe copy)
+    /// @param symbol Trading pair (e.g., "BTC/USD")
+    /// @return Latest order book, or nullopt if not available
+    std::optional<OrderBook> latest_book(const std::string& symbol) const;
+    
+    /// Get all tracked symbols with their latest tickers
+    std::unordered_map<std::string, Ticker> all_tickers() const;
+    
+    //--------------------------------------------------------------------------
+    // Gap Detection
+    //--------------------------------------------------------------------------
+    
+    /// Get total number of gaps detected
+    uint64_t gap_count() const;
     
 private:
     class Impl;

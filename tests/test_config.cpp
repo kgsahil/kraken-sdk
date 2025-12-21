@@ -3,6 +3,7 @@
 
 #include <gtest/gtest.h>
 #include <kraken/config.hpp>
+#include <kraken/backoff.hpp>
 
 using namespace kraken;
 
@@ -49,14 +50,30 @@ TEST_F(ConfigTest, SetReconnectAttempts) {
     EXPECT_EQ(config.reconnect_attempts(), 5);
 }
 
-// Test reconnect delay
-TEST_F(ConfigTest, SetReconnectDelay) {
-    auto delay = std::chrono::milliseconds(2000);
-    auto config = ClientConfig::Builder()
-        .reconnect_delay(delay)
+// Test backoff strategy (replaces legacy reconnect_delay)
+TEST_F(ConfigTest, SetBackoffStrategy) {
+    auto backoff_ptr = ExponentialBackoff::builder()
+        .initial_delay(std::chrono::milliseconds(500))
+        .max_delay(std::chrono::seconds(30))
+        .multiplier(1.5)
+        .jitter(0.2)
+        .max_attempts(5)
         .build();
     
-    EXPECT_EQ(config.reconnect_delay(), delay);
+    auto config = ClientConfig::Builder()
+        .backoff(std::shared_ptr<BackoffStrategy>(std::move(backoff_ptr)))
+        .build();
+    
+    auto backoff = config.backoff_strategy();
+    ASSERT_NE(backoff, nullptr);
+    EXPECT_EQ(backoff->max_attempts(), 5);
+    
+    // Test that backoff produces increasing delays
+    auto delay1 = backoff->next_delay();
+    auto delay2 = backoff->next_delay();
+    // With multiplier 1.5 and some jitter, delay2 should be roughly 1.5x delay1
+    EXPECT_GT(delay2.count(), delay1.count() * 1.0);  // At least same (with jitter)
+    EXPECT_LT(delay2.count(), delay1.count() * 2.5);  // But not too much more
 }
 
 // Test checksum validation

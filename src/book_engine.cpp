@@ -63,30 +63,44 @@ uint32_t crc32_update(uint32_t crc, const char* data, size_t len) {
 }
 
 // Format price level for checksum (Kraken format: price + qty, no decimal points)
-std::string format_for_checksum(double value) {
+// Optimized to append directly to output buffer, avoiding intermediate allocations
+void format_for_checksum(double value, std::string& out) {
     char buf[32];
-    snprintf(buf, sizeof(buf), "%.10f", value);
+    int len = snprintf(buf, sizeof(buf), "%.10f", value);
     
-    std::string s(buf);
+    // Find decimal point and significant digit range
+    int dot_pos = -1;
+    int first_nonzero = -1;
+    int last_nonzero = -1;
     
-    // Remove decimal point
-    size_t dot = s.find('.');
-    if (dot != std::string::npos) {
-        s.erase(dot, 1);
+    for (int i = 0; i < len; ++i) {
+        if (buf[i] == '.') {
+            dot_pos = i;
+        } else if (buf[i] != '0') {
+            if (first_nonzero < 0) first_nonzero = i;
+            last_nonzero = i;
+        }
     }
     
-    // Remove leading zeros
-    size_t first_nonzero = s.find_first_not_of('0');
-    if (first_nonzero != std::string::npos && first_nonzero > 0) {
-        s = s.substr(first_nonzero);
+    if (first_nonzero < 0) {
+        out += '0';
+        return;
     }
     
-    // Remove trailing zeros after decimal
-    while (!s.empty() && s.back() == '0') {
-        s.pop_back();
+    // Append non-zero portion, skipping decimal point
+    for (int i = first_nonzero; i <= last_nonzero; ++i) {
+        if (i != dot_pos) {
+            out += buf[i];
+        }
     }
-    
-    return s.empty() ? "0" : s;
+}
+
+// Legacy version for compatibility
+std::string format_for_checksum(double value) {
+    std::string result;
+    result.reserve(24);
+    format_for_checksum(value, result);
+    return result;
 }
 
 } // namespace
@@ -191,30 +205,26 @@ OrderBook BookEngine::to_order_book(const InternalBook& ibook) const {
     return book;
 }
 
-// Helper to format price level for checksum (reduces duplication)
-namespace {
-    void append_level_to_checksum(std::string& data, const PriceLevel& level) {
-        data += format_for_checksum(level.price);
-        data += format_for_checksum(level.quantity);
-    }
-}
-
 uint32_t BookEngine::calculate_checksum(const OrderBook& book) {
     // Kraken checksum format:
     // Concatenate top 10 bids and asks: ask_price0, ask_qty0, bid_price0, bid_qty0, ...
     
+    // Pre-allocate for ~10 levels * 4 values * ~20 chars each
     std::string data;
+    data.reserve(800);
     
-    size_t levels = 10;
+    constexpr size_t levels = 10;
     for (size_t i = 0; i < levels; ++i) {
         // Ask
         if (i < book.asks.size()) {
-            append_level_to_checksum(data, book.asks[i]);
+            format_for_checksum(book.asks[i].price, data);
+            format_for_checksum(book.asks[i].quantity, data);
         }
         
         // Bid
         if (i < book.bids.size()) {
-            append_level_to_checksum(data, book.bids[i]);
+            format_for_checksum(book.bids[i].price, data);
+            format_for_checksum(book.bids[i].quantity, data);
         }
     }
     

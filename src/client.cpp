@@ -125,5 +125,29 @@ Metrics KrakenClient::get_metrics() const {
     return impl_->get_metrics();
 }
 
+//------------------------------------------------------------------------------
+// Data Snapshots
+//------------------------------------------------------------------------------
+
+std::optional<Ticker> KrakenClient::latest_ticker(const std::string& symbol) const {
+    return impl_->latest_ticker(symbol);
+}
+
+std::optional<OrderBook> KrakenClient::latest_book(const std::string& symbol) const {
+    return impl_->latest_book(symbol);
+}
+
+std::unordered_map<std::string, Ticker> KrakenClient::all_tickers() const {
+    return impl_->all_tickers();
+}
+
+//------------------------------------------------------------------------------
+// Gap Detection
+//------------------------------------------------------------------------------
+
+uint64_t KrakenClient::gap_count() const {
+    return impl_->gap_count();
+}
+
 } // namespace kraken
 

@@ -147,7 +147,14 @@ size_t StrategyEngine::count() const {
 KrakenClient::Impl::Impl(ClientConfig config)
     : config_(std::move(config))
     , queue_(std::make_unique<rigtorp::SPSCQueue<Message>>(config_.queue_capacity()))
-    , start_time_(std::chrono::steady_clock::now()) {
+    , start_time_(std::chrono::steady_clock::now())
+    , backoff_strategy_(config_.backoff_strategy())
+    , gap_tracker_(config_.gap_detection_config()) {
+    
+    // Set up gap callback if configured
+    if (config_.on_gap()) {
+        gap_tracker_.on_gap(config_.on_gap());
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -507,6 +514,11 @@ void KrakenClient::Impl::dispatcher_loop() {
             // Capture receive time before pop (msg may be invalidated)
             auto recv_time = msg->receive_time;
             
+            // Check for gaps in sequence numbers
+            if (msg->has_sequence) {
+                gap_tracker_.check(msg->channel, msg->symbol, msg->sequence);
+            }
+            
             dispatch(*msg);
             queue_->pop();
             
@@ -528,9 +540,10 @@ void KrakenClient::Impl::dispatcher_loop() {
             }
         } else {
             // Queue empty - wait efficiently with condition variable
+            // Use unbounded wait for minimal latency (stop_requested_ will wake us)
             std::unique_lock<std::mutex> lock(queue_cv_mutex_);
-            queue_cv_.wait_for(lock, std::chrono::milliseconds(10), [this] {
-                return queue_->front() != nullptr || stop_requested_.load();
+            queue_cv_.wait(lock, [this] {
+                return queue_->front() != nullptr || stop_requested_.load(std::memory_order_acquire);
             });
         }
     }
@@ -543,8 +556,19 @@ void KrakenClient::Impl::dispatch(Message& msg) {
         
         switch (msg.type) {
             case MessageType::Ticker:
-                if (ticker_callback_ && msg.holds<Ticker>()) {
-                    safe_invoke_callback(ticker_callback_, msg.get<Ticker>());
+                if (msg.holds<Ticker>()) {
+                    const auto& ticker = msg.get<Ticker>();
+                    
+                    // Store latest snapshot (for latest_ticker())
+                    {
+                        std::unique_lock snap_lock(snapshots_mutex_);
+                        latest_tickers_[ticker.symbol] = ticker;
+                    }
+                    
+                    // Invoke callback
+                    if (ticker_callback_) {
+                        safe_invoke_callback(ticker_callback_, ticker);
+                    }
                 }
                 break;
                 
@@ -555,9 +579,19 @@ void KrakenClient::Impl::dispatch(Message& msg) {
                 break;
                 
             case MessageType::Book:
-                if (book_callback_ && msg.holds<OrderBook>()) {
+                if (msg.holds<OrderBook>()) {
                     const auto& book = msg.get<OrderBook>();
-                    safe_invoke_callback(book_callback_, book.symbol, book);
+                    
+                    // Store latest snapshot (for latest_book())
+                    {
+                        std::unique_lock snap_lock(snapshots_mutex_);
+                        latest_books_[book.symbol] = book;
+                    }
+                    
+                    // Invoke callback
+                    if (book_callback_) {
+                        safe_invoke_callback(book_callback_, book.symbol, book);
+                    }
                 }
                 break;
                 
@@ -600,35 +634,87 @@ void KrakenClient::Impl::handle_reconnect() {
     
     set_connection_state(ConnectionState::Reconnecting);
     
-    int attempts = 0;
-    while (!stop_requested_ && attempts < config_.reconnect_attempts()) {
-        attempts++;
+    // Reset backoff for fresh reconnection sequence
+    if (backoff_strategy_) {
+        backoff_strategy_->reset();
+    }
+    
+    while (!stop_requested_) {
+        // Check if we should stop retrying
+        if (backoff_strategy_ && backoff_strategy_->should_stop()) {
+            break;
+        }
         
-        std::this_thread::sleep_for(config_.reconnect_delay());
+        // Get delay with exponential backoff and jitter
+        auto delay = backoff_strategy_ 
+            ? backoff_strategy_->next_delay() 
+            : std::chrono::milliseconds(1000);
+        
+        int attempt = backoff_strategy_ ? backoff_strategy_->current_attempt() : 1;
+        int max_attempts = backoff_strategy_ ? backoff_strategy_->max_attempts() : 10;
+        
+        // Notify via callback if configured
+        if (config_.on_reconnect()) {
+            ReconnectEvent event{
+                attempt,
+                max_attempts,
+                delay,
+                "Connection lost"
+            };
+            try {
+                config_.on_reconnect()(event);
+            } catch (...) {
+                // Callback threw - ignore
+            }
+        }
+        
+        // Wait before attempting reconnection
+        if (delay.count() > 0) {
+            std::this_thread::sleep_for(delay);
+        }
+        
+        if (stop_requested_) break;
         
         try {
             connection_ = std::make_unique<Connection>(config_.url());
             connection_->connect();
             set_connection_state(ConnectionState::Connected);
             
+            // Reset backoff on successful connection
+            if (backoff_strategy_) {
+                backoff_strategy_->reset();
+            }
+            
+            // Reset gap tracker for fresh sequence tracking
+            gap_tracker_.reset_all();
+            
             // Resubscribe (failures in send_subscribe are handled internally)
             std::lock_guard<std::mutex> lock(subscriptions_mutex_);
             for (auto& pair : subscriptions_) {
                 auto& sub = pair.second;
                 if (sub->is_active() && !sub->is_paused()) {
-                    // send_subscribe handles its own exceptions
                     send_subscribe(sub->channel(), sub->symbols(), sub->depth());
                 }
             }
             
             return;
-        } catch (const std::exception&) {
-            // Continue trying
+        } catch (const std::exception& e) {
+            // Log and continue with backoff
+            safe_invoke_error_callback(
+                ErrorCode::ConnectionFailed,
+                std::string("Reconnect attempt ") + std::to_string(attempt) + " failed: " + e.what(),
+                ""
+            );
         }
     }
     
-    // Failed to reconnect
+    // Failed to reconnect after all attempts
     set_connection_state(ConnectionState::Disconnected);
+    safe_invoke_error_callback(
+        ErrorCode::ConnectionFailed,
+        "Failed to reconnect after maximum attempts",
+        ""
+    );
 }
 
 //------------------------------------------------------------------------------
@@ -655,6 +741,41 @@ Metrics KrakenClient::Impl::get_metrics() const {
     );
     m.start_time = start_time_;
     return m;
+}
+
+//------------------------------------------------------------------------------
+// Data Snapshots
+//------------------------------------------------------------------------------
+
+std::optional<Ticker> KrakenClient::Impl::latest_ticker(const std::string& symbol) const {
+    std::shared_lock lock(snapshots_mutex_);
+    auto it = latest_tickers_.find(symbol);
+    if (it != latest_tickers_.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+std::optional<OrderBook> KrakenClient::Impl::latest_book(const std::string& symbol) const {
+    std::shared_lock lock(snapshots_mutex_);
+    auto it = latest_books_.find(symbol);
+    if (it != latest_books_.end()) {
+        return it->second;
+    }
+    return std::nullopt;
+}
+
+std::unordered_map<std::string, Ticker> KrakenClient::Impl::all_tickers() const {
+    std::shared_lock lock(snapshots_mutex_);
+    return latest_tickers_;
+}
+
+//------------------------------------------------------------------------------
+// Gap Detection
+//------------------------------------------------------------------------------
+
+uint64_t KrakenClient::Impl::gap_count() const {
+    return gap_tracker_.gap_count();
 }
 
 } // namespace kraken

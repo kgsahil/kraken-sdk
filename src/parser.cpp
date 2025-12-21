@@ -176,6 +176,14 @@ Message parse_message(const std::string& raw_json) {
     const rapidjson::Value& data = data_arr[0];
     std::string symbol = get_string(data, "symbol");
     
+    // Extract sequence number for gap detection (if present)
+    msg.channel = channel;
+    msg.symbol = symbol;
+    if (doc.HasMember("sequence") && doc["sequence"].IsUint64()) {
+        msg.sequence = doc["sequence"].GetUint64();
+        msg.has_sequence = true;
+    }
+    
     // Route by channel type - store in variant
     if (channel == "ticker") {
         msg.type = MessageType::Ticker;

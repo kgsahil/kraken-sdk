@@ -7,6 +7,9 @@
 
 #include "types.hpp"
 #include "error.hpp"
+#include "backoff.hpp"
+#include "gap_detector.hpp"
+#include "telemetry.hpp"
 #include "config.hpp"
 #include "metrics.hpp"
 #include "subscription.hpp"
@@ -56,5 +59,25 @@
 /// client.add_alert(alert, [](const kraken::Alert& a) {
 ///     std::cout << "ALERT: " << a.message << std::endl;
 /// });
+/// @endcode
+/// 
+/// @section backoff Exponential Backoff
+/// 
+/// @code
+/// // Configure with custom backoff strategy
+/// auto config = kraken::ClientConfig::Builder()
+///     .backoff(kraken::ExponentialBackoff::builder()
+///         .initial_delay(std::chrono::seconds(1))
+///         .max_delay(std::chrono::minutes(2))
+///         .multiplier(2.0)
+///         .jitter(0.3)
+///         .max_attempts(10)
+///         .build())
+///     .on_reconnect([](const kraken::ReconnectEvent& e) {
+///         std::cout << "Reconnecting... attempt " << e.attempt << std::endl;
+///     })
+///     .build();
+/// 
+/// kraken::KrakenClient client(config);
 /// @endcode
 

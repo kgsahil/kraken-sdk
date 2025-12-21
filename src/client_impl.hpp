@@ -18,6 +18,7 @@
 #include <memory>
 #include <functional>
 #include <variant>
+#include <optional>
 
 namespace kraken {
 
@@ -62,6 +63,12 @@ struct Message {
     MessageType type = MessageType::Heartbeat;
     MessageData data;
     std::chrono::steady_clock::time_point receive_time;
+    
+    // Gap detection fields
+    std::string channel;        // e.g., "ticker", "book"
+    std::string symbol;         // e.g., "BTC/USD"
+    uint64_t sequence = 0;      // Sequence number from Kraken (0 = not present)
+    bool has_sequence = false;  // Whether message had a sequence number
     
     // Helper accessors with compile-time safety
     template<typename T>
@@ -145,6 +152,14 @@ public:
     //--- Metrics ---
     Metrics get_metrics() const;
     
+    //--- Data Snapshots ---
+    std::optional<Ticker> latest_ticker(const std::string& symbol) const;
+    std::optional<OrderBook> latest_book(const std::string& symbol) const;
+    std::unordered_map<std::string, Ticker> all_tickers() const;
+    
+    //--- Gap Detection ---
+    uint64_t gap_count() const;
+    
 private:
     void io_loop();
     void dispatcher_loop();
@@ -211,6 +226,17 @@ private:
     std::atomic<uint64_t> msg_dropped_{0};
     std::atomic<int64_t> latency_max_us_{0};
     std::chrono::steady_clock::time_point start_time_;
+    
+    // Reconnection with exponential backoff
+    std::unique_ptr<BackoffStrategy> backoff_strategy_;
+    
+    // Gap detection
+    SequenceTracker gap_tracker_;
+    
+    // Latest data snapshots (thread-safe)
+    mutable std::shared_mutex snapshots_mutex_;
+    std::unordered_map<std::string, Ticker> latest_tickers_;
+    std::unordered_map<std::string, OrderBook> latest_books_;
     
     // Order book state (for incremental updates)
     std::unordered_map<std::string, OrderBook> order_books_;

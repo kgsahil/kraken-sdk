@@ -156,6 +156,9 @@ if(KRAKEN_BUILD_TESTS)
     add_kraken_test(test_thread_safety)
     add_kraken_test(test_edge_cases)
     add_kraken_test(test_exception_safety)
+    add_kraken_test(test_backoff)
+    add_kraken_test(test_gap_detector)
+    add_kraken_test(test_telemetry)
 endif()
 
 # Installation

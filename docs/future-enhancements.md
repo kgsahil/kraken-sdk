@@ -1,110 +1,71 @@
 # Future Enhancements
 
-Review this after core SDK implementation is complete.
+**Last Updated:** December 2025
 
 ---
 
-## Quick Wins (Low Effort, High Impact)
+## ✅ Completed Features
 
-| Feature | Description | Why It Helps |
-|---------|-------------|--------------|
-| **Latency Tracking** | P50/P99 latency in Metrics struct | Proves "HFT-grade" claims with numbers |
-| **Rate Limit Handling** | Callback when rate limited, auto-throttle | Production concern, prevents bans |
-| **Snapshot Request** | Get current book state without streaming | Useful for initialization |
-
----
-
-## Unique "Wow" Features (Differentiators)
-
-Pick ONE to stand out from competitors:
-
-### 1. Time-Travel Replay
-```cpp
-// Record market data to file
-client.start_recording("btc_session.bin");
-// Later: replay for strategy testing
-client.replay("btc_session.bin", 2.0);  // 2x speed
-```
-**Why:** Strategy developers can test without live connection.
-
-### 2. Anomaly Detection
-```cpp
-client.on_anomaly([](const Anomaly& a) {
-    // a.type: SpreadSpike, VolumeSpike, PriceGap
-    // a.symbol, a.severity, a.details
-});
-client.enable_anomaly_detection({
-    .spread_threshold = 0.5,  // 0.5% spread triggers alert
-    .volume_spike = 3.0       // 3x normal volume
-});
-```
-**Why:** Traders love alerts. Shows domain knowledge.
-
-### 3. Multi-Exchange Abstraction
-```cpp
-// Same interface, different exchanges
-auto kraken = Exchange::create("kraken", config);
-auto binance = Exchange::create("binance", config);  // Future
-
-kraken->subscribe(Channel::Ticker, {"BTC/USD"}, callback);
-```
-**Why:** Shows extensibility thinking. Kraken is reference implementation.
-
-### 4. Latency Heatmap API
-```cpp
-struct LatencyBucket {
-    std::chrono::microseconds min, max;
-    uint64_t count;
-};
-std::vector<LatencyBucket> histogram = client.get_latency_histogram();
-```
-**Why:** Visualizers can show latency distribution over time.
-
-### 5. Strategy Hooks
-```cpp
-client.on_signal([](const Signal& s) {
-    // Built-in momentum/mean-reversion signals
-    // s.type: CrossOver, Breakout, MeanReversion
-});
-client.enable_signal(SignalType::Momentum, {
-    .fast_period = 10,
-    .slow_period = 30
-});
-```
-**Why:** Turns SDK into a mini-strategy framework.
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Trading Strategy Engine | ✅ Done | PriceAlert, VolumeSpike, SpreadAlert |
+| Live Performance Dashboard | ✅ Done | Real-time terminal UI |
+| Order Book Checksum | ✅ Done | CRC32 validation |
+| Exponential Backoff | ✅ Done | With jitter, multiple strategies |
+| Gap Detection | ✅ Done | Per-channel sequence tracking |
+| JSON Serialization | ✅ Done | `to_json()` on all types |
+| Google Benchmarks | ✅ Done | 4 benchmark suites |
+| Comprehensive Tests | ✅ Done | 17 test suites |
 
 ---
 
-## Benchmarks to Add
+## 🔜 Post-Hackathon Roadmap
 
-```cpp
-// Run and report:
-- Messages/second throughput
-- P50, P95, P99 message latency
-- Queue push/pop latency
-- Order round-trip time
-- Memory usage (peak, steady-state)
-- Comparison vs other SDKs (if time)
-```
+### High Priority
+
+| Feature | Effort | Impact |
+|---------|--------|--------|
+| **Full OTEL Integration** | 2-3 days | Export metrics to Prometheus/Jaeger |
+| **Order Execution (REST)** | 3-5 days | Complete trading workflow |
+| **Python Bindings** | 2-3 days | Broader adoption |
+| **P50/P99 Latency Tracking** | 1 day | Better latency visibility |
+
+### Medium Priority
+
+| Feature | Effort | Impact |
+|---------|--------|--------|
+| Time-Travel Replay | 3-4 days | Strategy backtesting |
+| Multi-Exchange Abstraction | 5+ days | Extensibility |
+| Rate Limit Handling | 1 day | Production safety |
+| Latency Histogram API | 1 day | Advanced monitoring |
+
+### Low Priority
+
+| Feature | Effort | Impact |
+|---------|--------|--------|
+| WebAssembly Bindings | 3-5 days | Browser usage |
+| ncurses Order Book UI | 2 days | Demo polish |
+| Spread Chart | 1 day | Visualization |
 
 ---
 
-## Demo Ideas
+## Demo Ideas for Future
 
-1. **Terminal Order Book** - ncurses-based, shows bids/asks updating live
-2. **Spread Chart** - ASCII chart of spread over time
-3. **Trade Tape** - Scrolling trades with color (green=buy, red=sell)
-4. **Latency Monitor** - Live P99 latency display
+1. **ncurses Order Book** - Full-screen order book with live updates
+2. **Trade Tape** - Scrolling trades with color coding
+3. **Latency Monitor** - Live P99 latency sparkline
+4. **Strategy Backtester** - Replay recorded sessions
 
 ---
 
 ## Review Checklist
 
-Before submission, verify:
-- [ ] All examples compile and run
-- [ ] Benchmarks show competitive numbers
-- [ ] Video demo recorded (2 minutes max)
-- [ ] README has quick-start that works
-- [ ] No compiler warnings
-- [ ] Tests pass
+Before any release, verify:
 
+- [x] All examples compile and run
+- [x] Benchmarks show competitive numbers
+- [ ] Video demo recorded (2 minutes max)
+- [x] README has quick-start that works
+- [x] No compiler warnings
+- [x] Tests pass (17/17)
+- [x] Documentation is complete

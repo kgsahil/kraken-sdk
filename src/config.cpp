@@ -26,24 +26,67 @@ ClientConfig::Builder& ClientConfig::Builder::queue_capacity(size_t capacity) {
     return *this;
 }
 
-ClientConfig::Builder& ClientConfig::Builder::reconnect_attempts(int attempts) {
-    config_.reconnect_attempts_ = attempts;
-    return *this;
-}
-
-ClientConfig::Builder& ClientConfig::Builder::reconnect_delay(std::chrono::milliseconds delay) {
-    config_.reconnect_delay_ = delay;
-    return *this;
-}
-
 ClientConfig::Builder& ClientConfig::Builder::validate_checksums(bool validate) {
     config_.validate_checksums_ = validate;
     return *this;
 }
 
+ClientConfig::Builder& ClientConfig::Builder::backoff(std::unique_ptr<BackoffStrategy> strategy) {
+    config_.backoff_strategy_ = std::move(strategy);
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::backoff(std::shared_ptr<BackoffStrategy> strategy) {
+    config_.backoff_strategy_ = std::move(strategy);
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::on_reconnect(ReconnectCallback callback) {
+    config_.on_reconnect_ = std::move(callback);
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::gap_detection(bool enabled) {
+    config_.gap_config_.enabled = enabled;
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::gap_tolerance(int tolerance) {
+    config_.gap_config_.gap_tolerance = tolerance;
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::on_gap(GapCallback callback) {
+    config_.on_gap_ = std::move(callback);
+    return *this;
+}
+
+// Legacy methods (deprecated)
+ClientConfig::Builder& ClientConfig::Builder::reconnect_attempts(int attempts) {
+    legacy_attempts_ = attempts;
+    legacy_mode_ = true;
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::reconnect_delay(std::chrono::milliseconds delay) {
+    legacy_delay_ = delay;
+    legacy_mode_ = true;
+    return *this;
+}
+
 ClientConfig ClientConfig::Builder::build() {
+    // If no backoff strategy set, create one
+    if (!config_.backoff_strategy_) {
+        if (legacy_mode_) {
+            // Use legacy fixed delay for backward compatibility
+            config_.backoff_strategy_ = std::make_shared<FixedBackoff>(
+                legacy_delay_, legacy_attempts_);
+        } else {
+            // Use conservative exponential backoff as default
+            config_.backoff_strategy_ = ExponentialBackoff::conservative();
+        }
+    }
     return config_;
 }
 
 } // namespace kraken
-
