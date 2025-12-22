@@ -86,19 +86,21 @@ jobs:
           -DVCPKG_TARGET_TRIPLET=x64-windows
     
     - name: Build
+      shell: powershell
       run: |
         cd build
         cmake --build . --config Release --parallel
     
     - name: Run tests (GoogleTest)
+      shell: powershell
       run: |
         cd build
-        echo "Running all GoogleTest suites..."
+        Write-Host "Running all GoogleTest suites..."
         ctest --output-on-failure --verbose -C Release --parallel
-        echo "## Test Results (Windows)" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        echo "**Total Test Suites:** 24" >> $GITHUB_STEP_SUMMARY
-        echo "**Total Test Cases:** 240+" >> $GITHUB_STEP_SUMMARY
+        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## Test Results (Windows)"
+        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
+        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Total Test Suites:** 24"
+        Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Total Test Cases:** 240+"
 
   # macOS Build and Test
   macos:
