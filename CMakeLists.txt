@@ -34,7 +34,57 @@ set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
-find_package(Boost 1.70 REQUIRED COMPONENTS system)
+# On macOS with Homebrew, Boost libraries might have different naming
+# Try to find Boost, and if system component fails, manually specify it
+find_package(Boost 1.70 QUIET COMPONENTS system)
+
+if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
+    # Boost not found or system component missing - try manual specification
+    message(STATUS "Boost system component not found automatically, trying manual specification...")
+    
+    # Try to find boost_system library manually
+    if(APPLE)
+        # On macOS, Homebrew installs Boost in /opt/homebrew/opt/boost (Apple Silicon) or /usr/local/opt/boost (Intel)
+        find_library(BOOST_SYSTEM_LIB
+            NAMES boost_system boost_system-mt
+            PATHS
+                /opt/homebrew/opt/boost/lib
+                /usr/local/opt/boost/lib
+                ${BOOST_ROOT}/lib
+                ${BOOST_LIBRARYDIR}
+            NO_DEFAULT_PATH
+        )
+        
+        if(BOOST_SYSTEM_LIB)
+            message(STATUS "Found boost_system manually: ${BOOST_SYSTEM_LIB}")
+            # Get Boost include directory
+            if(NOT BOOST_ROOT)
+                if(EXISTS "/opt/homebrew/opt/boost")
+                    set(BOOST_ROOT "/opt/homebrew/opt/boost")
+                elseif(EXISTS "/usr/local/opt/boost")
+                    set(BOOST_ROOT "/usr/local/opt/boost")
+                endif()
+            endif()
+            # Create imported target
+            add_library(Boost::system SHARED IMPORTED)
+            set_target_properties(Boost::system PROPERTIES
+                IMPORTED_LOCATION "${BOOST_SYSTEM_LIB}"
+                INTERFACE_INCLUDE_DIRECTORIES "${BOOST_ROOT}/include"
+            )
+            set(Boost_FOUND TRUE)
+            set(Boost_system_FOUND TRUE)
+            set(Boost_VERSION "1.90.0")
+        else()
+            message(FATAL_ERROR "Could not find Boost system library. Please install Boost with: brew install boost")
+        endif()
+    else()
+        # On other platforms, try standard find_package again
+        find_package(Boost 1.70 REQUIRED COMPONENTS system)
+    endif()
+else()
+    message(STATUS "Boost found: ${Boost_VERSION}")
+    message(STATUS "Boost system library: ${Boost_system_LIBRARY}")
+endif()
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 
