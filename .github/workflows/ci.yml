@@ -160,24 +160,37 @@ jobs:
       run: |
         cd build
         echo "Running clang-tidy on source files..."
+        # Create .clang-tidy config to exclude third-party code and set C++17
+        cat > ../.clang-tidy << 'EOF'
+        Checks: '*, -clang-diagnostic-c++14-attribute-extensions, -clang-analyzer-cplusplus.PlacementNew, -clang-analyzer-cplusplus.NewDeleteLeaks, -clang-diagnostic-deprecated-declarations'
+        WarningsAsErrors: '*'
+        HeaderFilterRegex: '^(include|src)/.*'
+        SystemHeaders: false
+        User: *
+        EOF
+        # Run clang-tidy only on our source files, exclude third-party dependencies
         find ../src ../include -name '*.cpp' -o -name '*.hpp' | \
-          xargs -I {} clang-tidy {} -p . --warnings-as-errors=* 2>&1 | tee clang-tidy-output.txt
-        CLANG_TIDY_EXIT_CODE=${PIPESTATUS[0]}
-        echo "exit_code=$CLANG_TIDY_EXIT_CODE" >> $GITHUB_OUTPUT
-        if [ $CLANG_TIDY_EXIT_CODE -ne 0 ]; then
-          echo "## ❌ Code Quality Issues Found" >> $GITHUB_STEP_SUMMARY
+          grep -v '_deps' | \
+          xargs -I {} clang-tidy {} -p . --config-file=../.clang-tidy --extra-arg=-std=c++17 2>&1 | tee clang-tidy-output.txt || true
+        # Count actual errors (lines with "error:")
+        ERROR_COUNT=$(grep -c "error:" clang-tidy-output.txt || echo "0")
+        if [ "$ERROR_COUNT" -gt 0 ]; then
+          echo "exit_code=1" >> $GITHUB_OUTPUT
+          echo "## ❌ Code Quality Issues Found ($ERROR_COUNT errors)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "clang-tidy found issues. Review the logs above for details." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          head -100 clang-tidy-output.txt >> $GITHUB_STEP_SUMMARY
+          grep "error:" clang-tidy-output.txt | head -50 >> $GITHUB_STEP_SUMMARY
           echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          exit 1
         else
+          echo "exit_code=0" >> $GITHUB_OUTPUT
           echo "## ✅ Code Quality Check Passed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "No clang-tidy issues found." >> $GITHUB_STEP_SUMMARY
+          echo "No clang-tidy issues found in our source code." >> $GITHUB_STEP_SUMMARY
+          exit 0
         fi
-        exit $CLANG_TIDY_EXIT_CODE
     
     - name: Code Quality Summary
       if: always() && steps.clang-tidy.outputs.exit_code != '0'

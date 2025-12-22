@@ -776,12 +776,9 @@ void KrakenClient::Impl::dispatch(Message& msg) {
     // Evaluate strategies OUTSIDE the lock to avoid blocking callbacks
     if (msg.type == MessageType::Ticker && msg.holds<Ticker>()) {
         try {
-            // Track number of alerts before evaluation
-            size_t alerts_before = strategy_engine_.count();
             strategy_engine_.evaluate(msg.get<Ticker>());
             // If alerts fired, telemetry will be updated by alert callbacks
-            // For now, we track it by monitoring strategy count changes
-            // (Note: This is approximate - actual alert firing is tracked in alert callbacks)
+            // (Note: Actual alert firing is tracked in alert callbacks)
         } catch (const std::exception& e) {
             // Strategy evaluation exception - notify via error callback
             safe_invoke_error_callback(ErrorCode::CallbackError, 
