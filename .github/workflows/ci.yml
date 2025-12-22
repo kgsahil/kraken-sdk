@@ -128,11 +128,15 @@ jobs:
       run: |
         mkdir -p build
         cd build
-        export CMAKE_PREFIX_PATH="$(brew --prefix boost):$(brew --prefix openssl@3):$CMAKE_PREFIX_PATH"
+        export BOOST_ROOT=$(brew --prefix boost)
+        export OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
+        export CMAKE_PREFIX_PATH="$BOOST_ROOT:$OPENSSL_ROOT_DIR:$CMAKE_PREFIX_PATH"
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DKRAKEN_BUILD_TESTS=ON \
           -DKRAKEN_BUILD_EXAMPLES=ON \
+          -DBOOST_ROOT="$BOOST_ROOT" \
+          -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
           -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH"
     
     - name: Build
