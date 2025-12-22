@@ -157,10 +157,23 @@ jobs:
     - name: Install dependencies
       run: |
         brew update
+        # Install Boost with all components to ensure system component is available
         brew install cmake boost openssl@3 pkg-config || true
         # Verify Boost installation
-        echo "Boost location: $(brew --prefix boost)"
-        ls -la $(brew --prefix boost)/lib/ | grep -i boost || echo "Warning: Boost libraries not found in expected location"
+        BOOST_PREFIX=$(brew --prefix boost)
+        echo "Boost location: $BOOST_PREFIX"
+        echo "Boost libs:"
+        ls -la "$BOOST_PREFIX/lib/" | grep -i boost || echo "Warning: Boost libraries not found"
+        echo "Boost includes:"
+        ls -la "$BOOST_PREFIX/include/" | grep -i boost || echo "Warning: Boost includes not found"
+        # Check specifically for boost_system
+        if [ -f "$BOOST_PREFIX/lib/libboost_system.dylib" ] || [ -f "$BOOST_PREFIX/lib/libboost_system.a" ]; then
+          echo "✅ Found boost_system library"
+        else
+          echo "❌ boost_system library not found - this may cause issues"
+          echo "Trying to reinstall boost..."
+          brew reinstall boost || true
+        fi
     
     - name: Configure CMake
       run: |
