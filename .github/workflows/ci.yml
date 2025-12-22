@@ -8,7 +8,6 @@ on:
 
 jobs:
   # Linux Build and Test (always runs - fastest platform)
-  # Linux Build and Test
   linux:
     name: Linux (Ubuntu)
     runs-on: ubuntu-latest
