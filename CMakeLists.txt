@@ -13,8 +13,13 @@ option(KRAKEN_BUILD_TOOLS "Build tools (benchmark)" ON)
 # Find system dependencies
 # Note: Boost.Beast works with Boost 1.70+, but we prefer 1.81+ for best features
 # Set policies for Boost finding - must be set before find_package
-cmake_policy(SET CMP0144 NEW)
-cmake_policy(SET CMP0167 OLD)  # Use FindBoost module (not removed yet)
+# These policies may not be available in older CMake versions, so check first
+if(POLICY CMP0144)
+    cmake_policy(SET CMP0144 NEW)
+endif()
+if(POLICY CMP0167)
+    cmake_policy(SET CMP0167 OLD)  # Use FindBoost module (not removed yet)
+endif()
 
 # Force FindBoost instead of BoostConfig
 # Unset Boost_DIR to prevent CMake from using BoostConfig.cmake
