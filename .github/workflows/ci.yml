@@ -90,12 +90,22 @@ jobs:
     
     - name: Install dependencies via vcpkg
       shell: powershell
+      timeout-minutes: 20
       run: |
-        # Use binary caching and pre-built binaries to speed up installation
-        & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows `
-          --triplet x64-windows `
-          --binarycaching `
-          --x-binarysource=clear;files,$env:VCPKG_ROOT\archives,readwrite
+        # Check if packages are already installed (from cache)
+        $boostInstalled = & "$env:VCPKG_ROOT\vcpkg.exe" list boost-system:x64-windows 2>&1
+        $opensslInstalled = & "$env:VCPKG_ROOT\vcpkg.exe" list openssl:x64-windows 2>&1
+        
+        if ($boostInstalled -match "boost-system" -and $opensslInstalled -match "openssl") {
+          Write-Host "✅ Dependencies already installed from cache - skipping build"
+        } else {
+          Write-Host "Installing dependencies (this may take 10-15 minutes on first run)..."
+          # Use binary caching to speed up subsequent runs
+          # Try to use pre-built binaries from vcpkg's binary cache
+          & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows `
+            --triplet x64-windows `
+            --binarycaching
+        }
     
     - name: Configure CMake
       shell: powershell
