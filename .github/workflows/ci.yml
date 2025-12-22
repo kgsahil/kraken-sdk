@@ -231,11 +231,10 @@ jobs:
       id: clang-tidy
       run: |
         cd build
-        echo "Running clang-tidy on source files..."
-        # Run clang-tidy only on our source files, exclude third-party dependencies
-        find ../src ../include -name '*.cpp' -o -name '*.hpp' | \
-          grep -v '_deps' | \
-          xargs -I {} clang-tidy {} -p . --config-file=../.clang-tidy --extra-arg=-std=c++17 2>&1 | tee clang-tidy-output.txt || true
+        echo "Running clang-tidy on changed files..."
+        # Use the check script which only checks modified/new files in CI
+        export CI=true
+        ../scripts/check_clang_tidy.sh 2>&1 | tee clang-tidy-output.txt || true
         # Count actual errors (lines with "error:")
         ERROR_COUNT=$(grep -c "error:" clang-tidy-output.txt || echo "0")
         if [ "$ERROR_COUNT" -gt 0 ]; then
