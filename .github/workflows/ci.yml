@@ -38,7 +38,7 @@ jobs:
     - name: Build
       run: |
         cd build
-        cmake --build . --config Release -j$(nproc)
+        cmake --build . -j$(nproc)
     
     - name: Run tests (GoogleTest)
       run: |
@@ -66,48 +66,37 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Install dependencies
+    - name: Install vcpkg
+      uses: microsoft/setup-vcpkg@v3
+    
+    - name: Install dependencies via vcpkg
       run: |
-        choco install cmake -y
-        choco install boost-msvc-14.3 -y
-        choco install openssl -y
+        vcpkg install boost-system:x64-windows openssl:x64-windows
     
     - name: Configure CMake
-      shell: bash
       run: |
-        mkdir -p build
+        mkdir build
         cd build
-        # Find Boost and OpenSSL paths
-        BOOST_ROOT=$(cygpath -w "$(find /c/ProgramData/chocolatey/lib -name 'boost*' -type d | head -1)" 2>/dev/null || echo "")
-        OPENSSL_ROOT=$(cygpath -w "$(find /c/ProgramData/chocolatey/lib -name 'openssl*' -type d | head -1)" 2>/dev/null || echo "")
-        cmake .. \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DKRAKEN_BUILD_TESTS=ON \
-          -DKRAKEN_BUILD_EXAMPLES=ON \
-          ${BOOST_ROOT:+-DBOOST_ROOT="$BOOST_ROOT"} \
-          ${OPENSSL_ROOT:+-DOPENSSL_ROOT_DIR="$OPENSSL_ROOT"}
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DKRAKEN_BUILD_TESTS=ON -DKRAKEN_BUILD_EXAMPLES=ON -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows
     
     - name: Build
-      shell: bash
       run: |
         cd build
         cmake --build . --config Release --parallel
     
     - name: Run tests (GoogleTest)
-      shell: bash
       run: |
         cd build
         echo "Running all GoogleTest suites..."
-        ctest --output-on-failure --verbose --parallel
+        ctest --output-on-failure --verbose -C Release --parallel
     
     - name: Test results summary
       if: always()
-      shell: bash
       run: |
         cd build
         echo "## Test Results (Windows)" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        ctest --output-on-failure --verbose | tee test_results.txt || true
+        ctest --output-on-failure --verbose -C Release | Out-File -FilePath test_results.txt -Encoding utf8
 
   # macOS Build and Test
   macos:
@@ -120,7 +109,8 @@ jobs:
       
     - name: Install dependencies
       run: |
-        brew install cmake boost openssl@3 pkg-config
+        brew update
+        brew install cmake boost openssl@3 pkg-config || true
     
     - name: Configure CMake
       run: |
@@ -135,7 +125,7 @@ jobs:
     - name: Build
       run: |
         cd build
-        cmake --build . --config Release -j$(sysctl -n hw.ncpu)
+        cmake --build . -j$(sysctl -n hw.ncpu)
     
     - name: Run tests (GoogleTest)
       run: |
