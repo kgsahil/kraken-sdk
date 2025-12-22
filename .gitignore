@@ -44,3 +44,4 @@ Thumbs.db
 *.log
 
 build-release/
+build_test_*/
