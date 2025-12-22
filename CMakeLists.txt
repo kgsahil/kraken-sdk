@@ -12,6 +12,8 @@ option(KRAKEN_BUILD_TOOLS "Build tools (benchmark)" ON)
 
 # Find system dependencies
 # Note: Boost.Beast works with Boost 1.70+, but we prefer 1.81+ for best features
+# Set policy to use BOOST_ROOT if provided
+cmake_policy(SET CMP0144 NEW)
 find_package(Boost 1.70 REQUIRED COMPONENTS system)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
