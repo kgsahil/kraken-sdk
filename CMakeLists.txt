@@ -16,9 +16,17 @@ option(KRAKEN_BUILD_TOOLS "Build tools (benchmark)" ON)
 cmake_policy(SET CMP0144 NEW)
 cmake_policy(SET CMP0167 OLD)  # Use FindBoost module (not removed yet)
 
-# Force FindBoost instead of BoostConfig by unsetting Boost_DIR if it points to BoostConfig
-if(DEFINED Boost_DIR AND Boost_DIR MATCHES "BoostConfig")
+# Force FindBoost instead of BoostConfig
+# Unset Boost_DIR to prevent CMake from using BoostConfig.cmake
+if(DEFINED Boost_DIR)
     unset(Boost_DIR CACHE)
+endif()
+
+# Try to find Boost using FindBoost module
+# If BOOST_ROOT is set, use it; otherwise let CMake search
+if(DEFINED ENV{BOOST_ROOT})
+    set(BOOST_ROOT $ENV{BOOST_ROOT})
+    set(Boost_NO_BOOST_CMAKE ON)  # Disable BoostConfig.cmake
 endif()
 
 find_package(Boost 1.70 REQUIRED COMPONENTS system)
