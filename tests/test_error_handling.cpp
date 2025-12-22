@@ -116,14 +116,25 @@ TEST_F(ErrorHandlingTest, RunWhenAlreadyRunning) {
 
 // Test invalid config values
 TEST_F(ErrorHandlingTest, InvalidConfig) {
-    // Zero queue capacity might be invalid, but builder allows it
-    // This is more of a runtime issue
-    auto config = ClientConfig::Builder()
-        .queue_capacity(0)
-        .build();
-    
-    // Builder doesn't validate, but runtime might fail
-    // This is acceptable - fail fast at runtime
+    bool caught = false;
+    try {
+        ClientConfig::Builder()
+            .queue_capacity(0)
+            .build();
+    } catch (const std::invalid_argument&) {
+        caught = true;
+    }
+    EXPECT_TRUE(caught);
+
+    caught = false;
+    try {
+        ClientConfig::Builder()
+            .url("not-a-url")
+            .build();
+    } catch (const std::invalid_argument&) {
+        caught = true;
+    }
+    EXPECT_TRUE(caught);
 }
 
 // Test negative reconnect attempts

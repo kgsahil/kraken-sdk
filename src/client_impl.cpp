@@ -329,10 +329,25 @@ void KrakenClient::Impl::set_connection_state(ConnectionState state) {
 // Subscriptions
 //------------------------------------------------------------------------------
 
+namespace {
+bool symbols_valid(const std::vector<std::string>& symbols) {
+    constexpr size_t kMaxSymbolLen = 256;
+    for (const auto& sym : symbols) {
+        if (sym.empty() || sym.size() > kMaxSymbolLen) {
+            return false;
+        }
+    }
+    return true;
+}
+} // namespace
+
 Subscription KrakenClient::Impl::subscribe(Channel channel, 
                                             const std::vector<std::string>& symbols) {
     if (symbols.empty()) {
         throw std::invalid_argument("symbols cannot be empty");
+    }
+    if (!symbols_valid(symbols)) {
+        throw std::invalid_argument("symbols are invalid (empty or too long)");
     }
     
     int id = next_sub_id_++;
@@ -361,6 +376,9 @@ Subscription KrakenClient::Impl::subscribe_book(const std::vector<std::string>& 
                                                  int depth) {
     if (symbols.empty()) {
         throw std::invalid_argument("symbols cannot be empty");
+    }
+    if (!symbols_valid(symbols)) {
+        throw std::invalid_argument("symbols are invalid (empty or too long)");
     }
     
     int id = next_sub_id_++;

@@ -37,16 +37,39 @@ double get_double(const rapidjson::Value& obj, const char* key, double def = 0.0
     return def;
 }
 
+// Helper to strictly parse numbers; returns false if present but not numeric
+bool get_double_strict(const rapidjson::Value& obj, const char* key, double& out, double def = 0.0) {
+    if (!obj.HasMember(key)) {
+        out = def;
+        return true;
+    }
+    const auto& v = obj[key];
+    if (v.IsNumber()) {
+        out = v.GetDouble();
+        return true;
+    }
+    if (v.IsString()) {
+        try {
+            out = std::stod(v.GetString());
+            return true;
+        } catch (...) {
+            return false;
+        }
+    }
+    return false;
+}
+
 // Parse ticker from Kraken v2 format
-Ticker parse_ticker(const rapidjson::Value& data, const std::string& symbol) {
+Ticker parse_ticker(const rapidjson::Value& data, const std::string& symbol, bool& ok) {
     Ticker t;
     t.symbol = symbol;
-    t.bid = get_double(data, "bid");
-    t.ask = get_double(data, "ask");
-    t.last = get_double(data, "last");
-    t.volume_24h = get_double(data, "volume");
-    t.high_24h = get_double(data, "high");
-    t.low_24h = get_double(data, "low");
+    ok = true;
+    ok = ok && get_double_strict(data, "bid", t.bid);
+    ok = ok && get_double_strict(data, "ask", t.ask);
+    ok = ok && get_double_strict(data, "last", t.last);
+    ok = ok && get_double_strict(data, "volume", t.volume_24h);
+    ok = ok && get_double_strict(data, "high", t.high_24h);
+    ok = ok && get_double_strict(data, "low", t.low_24h);
     t.timestamp = get_string(data, "timestamp");
     return t;
 }
@@ -133,10 +156,24 @@ Message parse_message(const std::string& raw_json) {
         msg.data = Error{ErrorCode::ParseError, "Failed to parse JSON", raw_json};
         return msg;
     }
+
+    // Validate basic structure – must be a JSON object
+    if (!doc.IsObject()) {
+        msg.type = MessageType::Error;
+        msg.data = Error{ErrorCode::ParseError, "Invalid message format (not an object)", raw_json};
+        return msg;
+    }
     
     // Check message type
     std::string method = get_string(doc, "method");
     std::string channel = get_string(doc, "channel");
+
+    // If neither method nor channel is present, treat as malformed
+    if (method.empty() && channel.empty()) {
+        msg.type = MessageType::Error;
+        msg.data = Error{ErrorCode::ParseError, "Invalid message format (missing method/channel)", raw_json};
+        return msg;
+    }
     
     // Handle system messages
     if (method == "subscribe" || method == "unsubscribe") {
@@ -204,8 +241,15 @@ Message parse_message(const std::string& raw_json) {
     
     // Route by channel type - store in variant
     if (channel == "ticker") {
-        msg.type = MessageType::Ticker;
-        msg.data = parse_ticker(data, symbol);
+        bool ok = true;
+        auto ticker = parse_ticker(data, symbol, ok);
+        if (!ok) {
+            msg.type = MessageType::Error;
+            msg.data = Error{ErrorCode::ParseError, "Ticker contains non-numeric fields", raw_json};
+        } else {
+            msg.type = MessageType::Ticker;
+            msg.data = ticker;
+        }
     }
     else if (channel == "trade") {
         msg.type = MessageType::Trade;

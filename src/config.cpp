@@ -104,6 +104,17 @@ ClientConfig::Builder& ClientConfig::Builder::reconnect_delay(std::chrono::milli
 }
 
 ClientConfig ClientConfig::Builder::build() {
+    // Basic validation
+    if (config_.queue_capacity_ == 0) {
+        throw std::invalid_argument("queue_capacity must be greater than 0");
+    }
+    if (config_.url_.empty()) {
+        throw std::invalid_argument("WebSocket URL cannot be empty");
+    }
+    if (config_.url_.rfind("ws://", 0) != 0 && config_.url_.rfind("wss://", 0) != 0) {
+        throw std::invalid_argument("WebSocket URL must start with ws:// or wss://");
+    }
+
     // If no backoff strategy set, create one
     if (!config_.backoff_strategy_) {
         if (legacy_mode_) {

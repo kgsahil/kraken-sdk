@@ -14,9 +14,12 @@ RateLimiter::RateLimiter(double requests_per_sec, size_t burst_size, bool enable
 {
     if (requests_per_sec <= 0.0) {
         refill_rate_ = 0.0;
+        tokens_ = 0.0;
+        enabled_ = true; // keep limiter enabled so acquire() can fail
     }
     if (burst_size == 0) {
         max_tokens_ = 1;  // Minimum burst size
+        tokens_ = std::min(tokens_, static_cast<double>(max_tokens_));
     }
 }
 
@@ -32,7 +35,7 @@ bool RateLimiter::acquire() {
     std::lock_guard<std::mutex> lock(mutex_);
     refill_tokens();
     
-    if (tokens_ >= 1.0) {
+    if (tokens_ >= 1.0 && refill_rate_ > 0.0) {
         tokens_ -= 1.0;
         allowed_requests_.fetch_add(1, std::memory_order_relaxed);
         return true;
@@ -92,7 +95,7 @@ std::chrono::milliseconds RateLimiter::wait_time() const {
     std::lock_guard<std::mutex> lock(mutex_);
     refill_tokens();
     
-    if (tokens_ >= 1.0) {
+    if (tokens_ >= 1.0 && refill_rate_ > 0.0) {
         return std::chrono::milliseconds(0);
     }
     
