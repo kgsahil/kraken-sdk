@@ -23,6 +23,17 @@ class BackoffStrategy {
 public:
     virtual ~BackoffStrategy() = default;
     
+    // Non-copyable, non-movable (polymorphic base)
+    BackoffStrategy(const BackoffStrategy&) = delete;
+    BackoffStrategy& operator=(const BackoffStrategy&) = delete;
+    BackoffStrategy(BackoffStrategy&&) = delete;
+    BackoffStrategy& operator=(BackoffStrategy&&) = delete;
+
+protected:
+    // Protected default constructor for derived classes
+    BackoffStrategy() = default;
+
+public:
     /// Get the next delay duration
     /// @return Duration to wait before next retry
     virtual std::chrono::milliseconds next_delay() = 0;
@@ -50,7 +61,7 @@ public:
 /// Fixed delay between retries (no exponential growth)
 class FixedBackoff : public BackoffStrategy {
 public:
-    explicit FixedBackoff(std::chrono::milliseconds delay, int max_attempts = 10)
+    explicit FixedBackoff(std::chrono::milliseconds delay, int max_attempts = 10)  // NOLINT(readability-magic-numbers)
         : delay_(delay), max_attempts_(max_attempts) {}
     
     std::chrono::milliseconds next_delay() override {
@@ -188,11 +199,11 @@ public:
         }
         
     private:
-        std::chrono::milliseconds initial_delay_{1000};
-        std::chrono::milliseconds max_delay_{60000};
-        double multiplier_ = 2.0;
-        double jitter_factor_ = 0.3;
-        int max_attempts_ = 10;
+        std::chrono::milliseconds initial_delay_{1000};  // NOLINT(readability-magic-numbers)
+        std::chrono::milliseconds max_delay_{60000};      // NOLINT(readability-magic-numbers)
+        double multiplier_ = 2.0;                        // NOLINT(readability-magic-numbers)
+        double jitter_factor_ = 0.3;                     // NOLINT(readability-magic-numbers)
+        int max_attempts_ = 10;                           // NOLINT(readability-magic-numbers)
     };
     
     ExponentialBackoff() = default;

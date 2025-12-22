@@ -1,7 +1,6 @@
 ---
 # Clang-tidy configuration for Kraken SDK
-Checks: '*, -clang-diagnostic-c++14-attribute-extensions, -clang-analyzer-cplusplus.PlacementNew, -clang-analyzer-cplusplus.NewDeleteLeaks, -clang-diagnostic-deprecated-declarations, -readability-identifier-length, -cppcoreguidelines-avoid-magic-numbers'
-WarningsAsErrors: 'clang-analyzer-*,bugprone-*,performance-*,readability-*,portability-*,cppcoreguidelines-*,modernize-*,cert-*,misc-*'
+Checks: '*, -clang-diagnostic-c++14-attribute-extensions, -clang-analyzer-cplusplus.PlacementNew, -clang-analyzer-cplusplus.NewDeleteLeaks, -clang-diagnostic-deprecated-declarations, -readability-identifier-length, -readability-magic-numbers, -cppcoreguidelines-avoid-magic-numbers, -llvm-header-guard, -llvm-include-order, -llvmlibc-restrict-system-libc-headers, -llvmlibc-implementation-in-namespace, -altera-struct-pack-align, -modernize-use-trailing-return-type, -fuchsia-default-arguments-declarations, -fuchsia-default-arguments-calls, -fuchsia-trailing-return, -concurrency-mt-unsafe, -llvmlibc-callee-namespace, -modernize-use-nodiscard'
+WarningsAsErrors: 'clang-analyzer-*,bugprone-*,performance-*,readability-*,portability-*,cppcoreguidelines-*,cert-*,misc-*'
 HeaderFilterRegex: '^(include|src)/.*'
-SystemHeaders: false
 

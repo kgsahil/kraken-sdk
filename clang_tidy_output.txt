@@ -1,0 +1,21 @@
+🔍 Checking clang-tidy configuration...
+
+✅ Found compile_commands.json
+
+🔍 Running clang-tidy on source files...
+
+Checking: ../include/kraken/backoff.hpp
+../.clang-tidy:6:1: error: unknown key 'SystemHeaders'
+SystemHeaders: false
+^~~~~~~~~~~~~
+Error: invalid configuration specified.
+Invalid argument
+./scripts/check_clang_tidy.sh: line 65: 0
+0: syntax error in expression (error token is "0")
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📊 Summary:
+   Errors: 1
+   Warnings: 0
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+❌ Found 1 errors. Please fix them.

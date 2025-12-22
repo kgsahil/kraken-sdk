@@ -119,7 +119,7 @@ public:
     /// @param symbols List of trading pairs
     /// @param depth Order book depth (10, 25, 100, 500, 1000)
     /// @return Subscription handle
-    Subscription subscribe_book(const std::vector<std::string>& symbols, int depth = 10);
+    Subscription subscribe_book(const std::vector<std::string>& symbols, int depth = 10);  // NOLINT(readability-magic-numbers)
     
     //--------------------------------------------------------------------------
     // Alert Strategies

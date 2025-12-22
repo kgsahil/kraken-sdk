@@ -90,7 +90,7 @@ namespace kraken {
 /// ```
 /// 
 /// @return ClientConfig built from environment variables
-ClientConfig config_from_env();
+auto config_from_env() -> ClientConfig;
 
 /// Helper to get environment variable with default
 inline std::string get_env(const char* name, const std::string& default_value = "") {
