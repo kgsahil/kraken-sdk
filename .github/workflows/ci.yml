@@ -123,21 +123,26 @@ jobs:
       run: |
         brew update
         brew install cmake boost openssl@3 pkg-config || true
+        # Verify Boost installation
+        echo "Boost location: $(brew --prefix boost)"
+        ls -la $(brew --prefix boost)/lib/ | grep -i boost || echo "Warning: Boost libraries not found in expected location"
     
     - name: Configure CMake
       run: |
         mkdir -p build
         cd build
+        # Unset any existing Boost_DIR to force FindBoost
+        unset Boost_DIR || true
         export BOOST_ROOT=$(brew --prefix boost)
         export OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
-        export CMAKE_PREFIX_PATH="$BOOST_ROOT:$OPENSSL_ROOT_DIR:$CMAKE_PREFIX_PATH"
+        # Force CMake to use FindBoost by unsetting Boost_DIR cache variable
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DKRAKEN_BUILD_TESTS=ON \
           -DKRAKEN_BUILD_EXAMPLES=ON \
           -DBOOST_ROOT="$BOOST_ROOT" \
           -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
-          -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH"
+          -U Boost_DIR
     
     - name: Build
       run: |
