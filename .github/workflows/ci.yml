@@ -95,11 +95,11 @@ jobs:
       id: vcpkg-cache
       with:
         path: |
-          ${{ env.VCPKG_ROOT }}\installed
-          ${{ env.VCPKG_ROOT }}\buildtrees
-        key: ${{ runner.os }}-vcpkg-${{ hashFiles('CMakeLists.txt') }}
+          C:\Program Files\vcpkg\installed
+          C:\Program Files\vcpkg\buildtrees
+        key: ${{ runner.os }}-vcpkg-packages-${{ hashFiles('CMakeLists.txt') }}
         restore-keys: |
-          ${{ runner.os }}-vcpkg-
+          ${{ runner.os }}-vcpkg-packages-
     
     - name: Install dependencies via vcpkg
       shell: powershell
