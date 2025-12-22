@@ -85,15 +85,16 @@ This document lists additional configuration options that could be added to the 
 
 ---
 
-### Rate Limiting (Future Feature)
-| Variable | Description | Use Case |
-|----------|-------------|----------|
-| `RATE_LIMIT_ENABLED` | Enable rate limiting | Prevent API bans |
-| `RATE_LIMIT_REQUESTS_PER_SEC` | Request rate limit | API compliance |
-| `RATE_LIMIT_BURST_SIZE` | Burst allowance | Handle spikes |
-| `RATE_LIMIT_STRATEGY` | Strategy: token_bucket, sliding_window | Different algorithms |
+### Rate Limiting ✅ **COMPLETE**
+| Variable | Description | Use Case | Status |
+|----------|-------------|----------|--------|
+| `RATE_LIMIT_ENABLED` | Enable rate limiting | Prevent API bans | ✅ Implemented |
+| `RATE_LIMIT_REQUESTS_PER_SEC` | Request rate limit | API compliance | ✅ Implemented |
+| `RATE_LIMIT_BURST_SIZE` | Burst allowance | Handle spikes | ✅ Implemented |
 
-**Priority:** High - Important for production
+**Status:** ✅ Complete - Token bucket algorithm implemented in `src/rate_limiter.cpp`
+
+**Usage:** Set `RATE_LIMIT_ENABLED=true`, `RATE_LIMIT_REQUESTS_PER_SEC=10.0`, `RATE_LIMIT_BURST_SIZE=20`
 
 ---
 
@@ -233,11 +234,10 @@ This document lists additional configuration options that could be added to the 
 - ✅ Security options (6 variables) - **COMPLETE**
 
 **⏳ Recommended Additions:**
-- ⏳ Rate limiting (4 variables) - High priority
 - ⏳ Circuit breaker (4 variables) - Medium priority
 
-**Total Implemented:** ~30 environment variables  
-**Total Potential:** ~38 environment variables for complete enterprise configuration
+**Total Implemented:** ~33 environment variables (including rate limiting)  
+**Total Potential:** ~37 environment variables for complete enterprise configuration
 
 **Status:** ✅ **Production-Ready** - All critical configuration options available
 
