@@ -72,38 +72,30 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
-    - name: Cache vcpkg
+    - name: Setup vcpkg
+      uses: microsoft/setup-vcpkg@v1
+      with:
+        vcpkgGitCommitSha: '2024.01.12'  # Pin to specific version for reproducibility
+    
+    - name: Cache vcpkg packages
       uses: actions/cache@v4
+      id: vcpkg-cache
       with:
         path: |
-          ${{ env.ProgramFiles }}\vcpkg
-          ${{ env.LOCALAPPDATA }}\vcpkg
+          ${{ env.VCPKG_ROOT }}\installed
+          ${{ env.VCPKG_ROOT }}\buildtrees
         key: ${{ runner.os }}-vcpkg-${{ hashFiles('CMakeLists.txt') }}
         restore-keys: |
           ${{ runner.os }}-vcpkg-
     
-    - name: Install vcpkg
-      shell: powershell
-      run: |
-        $vcpkgDir = "$env:ProgramFiles\vcpkg"
-        if (-not (Test-Path "$vcpkgDir\vcpkg.exe")) {
-          Write-Host "Installing vcpkg..."
-          New-Item -ItemType Directory -Force -Path $vcpkgDir | Out-Null
-          git clone https://github.com/Microsoft/vcpkg.git $vcpkgDir
-          Push-Location $vcpkgDir
-          & .\bootstrap-vcpkg.bat
-          Pop-Location
-        } else {
-          Write-Host "vcpkg already installed"
-        }
-        $env:VCPKG_ROOT = $vcpkgDir
-        echo "VCPKG_ROOT=$vcpkgDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        Write-Host "VCPKG_ROOT set to: $vcpkgDir"
-    
     - name: Install dependencies via vcpkg
       shell: powershell
       run: |
-        & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows
+        # Use binary caching and pre-built binaries to speed up installation
+        & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows `
+          --triplet x64-windows `
+          --binarycaching `
+          --x-binarysource=clear;files,$env:VCPKG_ROOT\archives,readwrite
     
     - name: Configure CMake
       shell: powershell
