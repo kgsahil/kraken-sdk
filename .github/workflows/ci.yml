@@ -7,6 +7,7 @@ on:
     branches: [ main, develop ]
 
 jobs:
+  # Linux Build and Test (always runs - fastest platform)
   # Linux Build and Test
   linux:
     name: Linux (Ubuntu)
@@ -16,6 +17,18 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          /usr/lib/x86_64-linux-gnu/libboost*
+          /usr/lib/x86_64-linux-gnu/libssl*
+          /usr/include/boost
+          /usr/include/openssl
+        key: ${{ runner.os }}-deps-${{ hashFiles('CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
+    
     - name: Install dependencies
       run: |
         sudo apt-get update
@@ -50,15 +63,26 @@ jobs:
         echo "**Total Test Suites:** 24" >> $GITHUB_STEP_SUMMARY
         echo "**Total Test Cases:** 240+" >> $GITHUB_STEP_SUMMARY
 
-  # Windows Build and Test
+  # Windows Build and Test (only on PRs and main branch)
   windows:
     name: Windows (MSVC)
     runs-on: windows-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Cache vcpkg
+      uses: actions/cache@v4
+      with:
+        path: |
+          ${{ env.ProgramFiles }}\vcpkg
+          ${{ env.LOCALAPPDATA }}\vcpkg
+        key: ${{ runner.os }}-vcpkg-${{ hashFiles('CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-vcpkg-
+    
     - name: Install vcpkg
       shell: powershell
       run: |
@@ -110,15 +134,27 @@ jobs:
         Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Total Test Suites:** 24"
         Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Total Test Cases:** 240+"
 
-  # macOS Build and Test
+  # macOS Build and Test (only on PRs and main branch)
   macos:
     name: macOS (Clang)
     runs-on: macos-latest
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Cache Homebrew packages
+      uses: actions/cache@v4
+      with:
+        path: |
+          $(brew --cache)
+          $(brew --prefix)/opt/boost
+          $(brew --prefix)/opt/openssl@3
+        key: ${{ runner.os }}-homebrew-${{ hashFiles('CMakeLists.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-homebrew-
+    
     - name: Install dependencies
       run: |
         brew update
