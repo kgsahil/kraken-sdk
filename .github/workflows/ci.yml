@@ -60,17 +60,30 @@ jobs:
       uses: actions/checkout@v4
       
     - name: Install vcpkg
-      uses: microsoft/setup-vcpkg@v1
+      shell: powershell
+      run: |
+        $vcpkgDir = "$env:ProgramFiles\vcpkg"
+        if (-not (Test-Path $vcpkgDir)) {
+          git clone https://github.com/Microsoft/vcpkg.git $vcpkgDir
+          & "$vcpkgDir\bootstrap-vcpkg.bat"
+        }
+        echo "VCPKG_ROOT=$vcpkgDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     
     - name: Install dependencies via vcpkg
+      shell: powershell
       run: |
-        vcpkg install boost-system:x64-windows openssl:x64-windows
+        & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows
     
     - name: Configure CMake
+      shell: powershell
       run: |
-        mkdir build
+        New-Item -ItemType Directory -Force -Path build | Out-Null
         cd build
-        cmake .. -DKRAKEN_BUILD_TESTS=ON -DKRAKEN_BUILD_EXAMPLES=ON -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows
+        cmake .. `
+          -DKRAKEN_BUILD_TESTS=ON `
+          -DKRAKEN_BUILD_EXAMPLES=ON `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
+          -DVCPKG_TARGET_TRIPLET=x64-windows
     
     - name: Build
       run: |
