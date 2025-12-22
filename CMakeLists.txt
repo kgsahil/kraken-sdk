@@ -45,25 +45,56 @@ if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
     # Try to find boost_system library manually
     if(APPLE)
         # On macOS, Homebrew installs Boost in /opt/homebrew/opt/boost (Apple Silicon) or /usr/local/opt/boost (Intel)
-        find_library(BOOST_SYSTEM_LIB
-            NAMES boost_system boost_system-mt
-            PATHS
-                /opt/homebrew/opt/boost/lib
-                /usr/local/opt/boost/lib
-                ${BOOST_ROOT}/lib
-                ${BOOST_LIBRARYDIR}
-            NO_DEFAULT_PATH
-        )
+        # First, determine BOOST_ROOT if not set
+        if(NOT BOOST_ROOT)
+            if(EXISTS "/opt/homebrew/opt/boost")
+                set(BOOST_ROOT "/opt/homebrew/opt/boost")
+            elseif(EXISTS "/usr/local/opt/boost")
+                set(BOOST_ROOT "/usr/local/opt/boost")
+            elseif(DEFINED ENV{BOOST_ROOT})
+                set(BOOST_ROOT $ENV{BOOST_ROOT})
+            endif()
+        endif()
+        
+        if(BOOST_ROOT)
+            message(STATUS "Searching for Boost in: ${BOOST_ROOT}")
+            # Try to find boost_system library with various naming patterns
+            # Homebrew Boost 1.90 might use different names
+            find_library(BOOST_SYSTEM_LIB
+                NAMES 
+                    boost_system
+                    boost_system-mt
+                    libboost_system
+                    libboost_system-mt
+                PATHS
+                    ${BOOST_ROOT}/lib
+                    /opt/homebrew/opt/boost/lib
+                    /usr/local/opt/boost/lib
+                NO_DEFAULT_PATH
+            )
+            
+            # If not found, try without NO_DEFAULT_PATH as fallback
+            if(NOT BOOST_SYSTEM_LIB)
+                find_library(BOOST_SYSTEM_LIB
+                    NAMES 
+                        boost_system
+                        boost_system-mt
+                        libboost_system
+                        libboost_system-mt
+                    PATHS
+                        ${BOOST_ROOT}/lib
+                        /opt/homebrew/opt/boost/lib
+                        /usr/local/opt/boost/lib
+                )
+            endif()
+        endif()
         
         if(BOOST_SYSTEM_LIB)
             message(STATUS "Found boost_system manually: ${BOOST_SYSTEM_LIB}")
             # Get Boost include directory
             if(NOT BOOST_ROOT)
-                if(EXISTS "/opt/homebrew/opt/boost")
-                    set(BOOST_ROOT "/opt/homebrew/opt/boost")
-                elseif(EXISTS "/usr/local/opt/boost")
-                    set(BOOST_ROOT "/usr/local/opt/boost")
-                endif()
+                get_filename_component(BOOST_ROOT "${BOOST_SYSTEM_LIB}/.." ABSOLUTE)
+                get_filename_component(BOOST_ROOT "${BOOST_ROOT}/.." ABSOLUTE)
             endif()
             # Create imported target
             add_library(Boost::system SHARED IMPORTED)
@@ -74,8 +105,11 @@ if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
             set(Boost_FOUND TRUE)
             set(Boost_system_FOUND TRUE)
             set(Boost_VERSION "1.90.0")
+            message(STATUS "Boost system library: ${BOOST_SYSTEM_LIB}")
+            message(STATUS "Boost include directory: ${BOOST_ROOT}/include")
         else()
-            message(FATAL_ERROR "Could not find Boost system library. Please install Boost with: brew install boost")
+            message(FATAL_ERROR "Could not find Boost system library in ${BOOST_ROOT}/lib. "
+                    "Please install Boost with: brew install boost")
         endif()
     else()
         # On other platforms, try standard find_package again
