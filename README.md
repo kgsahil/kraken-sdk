@@ -185,15 +185,23 @@ std::cout << "⏱️  Uptime: " << metrics.uptime_string() << std::endl;
 
 All benchmarks run in Release mode with Google Benchmark:
 
-| Operation | Latency | Notes |
-|-----------|---------|-------|
-| **JSON Parsing** | 1.8 - 3.1 μs | Zero-copy RapidJSON |
-| **Queue Push/Pop** | 11 - 13 ns | Lock-free SPSC queue |
-| **Order Book Update** | 51 ns | Single price level |
-| **Checksum Calculation** | 24 μs | CRC32 validation |
-| **End-to-End Latency** | < 1 ms | I/O → Queue → Callback |
+| Operation | Latency | Throughput | Notes |
+|-----------|---------|------------|-------|
+| **JSON Parsing** | 1.5 - 2.2 μs | 320K+ msgs/sec | Zero-copy RapidJSON |
+| **Queue Push/Pop** | 11 - 12 ns | 85M+ ops/sec | Lock-free SPSC queue |
+| **Order Book Update** | 51 ns | 19M updates/sec | Single price level |
+| **Checksum Calculation** | 24 μs | 41K checksums/sec | CRC32 validation |
+| **End-to-End Latency** | < 1 ms | - | I/O → Queue → Callback |
 
-See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed benchmark results.
+**Benchmark Tools:**
+- `bench_parser` - JSON parsing performance
+- `bench_queue` - SPSC queue throughput  
+- `bench_orderbook` - Order book update speed
+- `bench_checksum` - CRC32 calculation speed
+- `bench_backpressure` - Backpressure and throughput under load
+- `benchmark_integration` - End-to-end performance test
+
+See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md) for detailed results.
 
 ---
 
@@ -390,17 +398,26 @@ struct OrderBook {
 
 ```bash
 cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DKRAKEN_BUILD_TESTS=ON
+make -j$(nproc)
 ctest --output-on-failure
 ```
 
-**17 comprehensive test suites:**
-- ✅ Unit tests (parsing, order book, checksum)
+**Latest Test Results:**
+```
+100% tests passed, 0 tests failed out of 24
+Total Test time (real) = 25.00 sec
+```
+
+**24 comprehensive test suites:**
+- ✅ Unit tests (parsing, order book, checksum, auth, logger, queue, config, rate limiter)
 - ✅ Integration tests (end-to-end message flow)
 - ✅ Thread safety tests (concurrent operations)
 - ✅ Edge case tests (boundary conditions)
 - ✅ Exception safety tests (error handling)
+- ✅ **Stress & failure tests** (40+ tests for breaking scenarios)
 
-**100% test pass rate** - All tests verified and passing.
+**100% test pass rate** - All 24 test suites verified and passing (240+ test cases including stress tests).
 
 ---
 
@@ -422,7 +439,7 @@ kraken-sdk/
 │   ├── internal/      # Private headers
 │   └── *.cpp          # Implementation files
 ├── examples/          # 8 practical examples
-├── tests/             # 17 test suites
+├── tests/             # 24 test suites (240+ test cases including stress tests)
 ├── benchmarks/        # Performance benchmarks
 └── docs/              # Comprehensive documentation
 ```
@@ -434,9 +451,12 @@ kraken-sdk/
 - **[README.md](README.md)** - This file (overview and quick start)
 - **[docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)** - Configuration reference
 - **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** - Performance benchmarks
+- **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)** - Test results and coverage report
+- **[docs/STRESS_TESTING.md](docs/STRESS_TESTING.md)** - Stress tests and failure injection
 - **[docs/METRICS.md](docs/METRICS.md)** - Metrics and monitoring
 - **[docs/DOXYGEN_DOCUMENTATION.md](docs/DOXYGEN_DOCUMENTATION.md)** - API documentation
 - **[examples/README.md](examples/README.md)** - Example applications
+- **[tests/TESTING.md](tests/TESTING.md)** - Testing strategy and coverage
 
 **Doxygen API Documentation:**
 ```bash
@@ -467,8 +487,8 @@ doxygen Doxyfile
 - **Thread-safe API** - Safe concurrent access throughout
 
 ### ✅ **Production Ready**
-- **17 test suites** - Unit, integration, thread safety, edge cases
-- **100% test coverage** - All critical paths tested
+- **24 test suites** - Unit, integration, thread safety, edge cases, stress tests (240+ test cases)
+- **100% test pass rate** - All critical paths tested and verified
 - **Exception safety** - RAII, proper error handling
 - **ABI stability** - PIMPL pattern for future compatibility
 

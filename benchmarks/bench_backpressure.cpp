@@ -1,5 +1,5 @@
-/// @file benchmark.cpp
-/// @brief Performance benchmark tool
+/// @file bench_backpressure.cpp
+/// @brief Backpressure and throughput benchmark
 ///
 /// Measures SDK throughput and latency under various conditions.
 ///

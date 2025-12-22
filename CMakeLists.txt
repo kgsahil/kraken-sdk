@@ -127,8 +127,9 @@ endif()
 # Tools
 if(KRAKEN_BUILD_TOOLS)
     # Integration benchmark (end-to-end with live API)
-    add_executable(benchmark_integration tools/benchmark.cpp)
+    add_executable(benchmark_integration benchmarks/bench_backpressure.cpp)
     target_include_directories(benchmark_integration PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}
         ${spdlog_SOURCE_DIR}/include
     )
     target_link_libraries(benchmark_integration PRIVATE kraken)
@@ -147,8 +148,10 @@ if(KRAKEN_BUILD_TOOLS)
         add_executable(${name} benchmarks/${name}.cpp)
         target_link_libraries(${name} PRIVATE kraken benchmark::benchmark benchmark::benchmark_main)
         target_include_directories(${name} PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}
             ${CMAKE_CURRENT_SOURCE_DIR}/src
             ${SPSCQueue_SOURCE_DIR}/include
+            ${spdlog_SOURCE_DIR}/include
         )
     endfunction()
     
@@ -156,6 +159,7 @@ if(KRAKEN_BUILD_TOOLS)
     add_microbenchmark(bench_queue)
     add_microbenchmark(bench_orderbook)
     add_microbenchmark(bench_checksum)
+    add_microbenchmark(bench_backpressure)
 endif()
 
 # Tests
@@ -201,6 +205,12 @@ if(KRAKEN_BUILD_TESTS)
     add_kraken_test(test_backoff)
     add_kraken_test(test_gap_detector)
     add_kraken_test(test_telemetry)
+    add_kraken_test(test_auth)
+    add_kraken_test(test_logger)
+    add_kraken_test(test_queue)
+    add_kraken_test(test_config_env)
+    add_kraken_test(test_connection_config)
+    add_kraken_test(test_stress_failure)
 endif()
 
 # Installation
