@@ -69,7 +69,7 @@ jobs:
     - name: Install dependencies
       run: |
         choco install cmake -y
-        choco install boost -y
+        choco install boost-msvc-14.3 -y
         choco install openssl -y
     
     - name: Configure CMake
@@ -77,11 +77,15 @@ jobs:
       run: |
         mkdir -p build
         cd build
+        # Find Boost and OpenSSL paths
+        BOOST_ROOT=$(cygpath -w "$(find /c/ProgramData/chocolatey/lib -name 'boost*' -type d | head -1)" 2>/dev/null || echo "")
+        OPENSSL_ROOT=$(cygpath -w "$(find /c/ProgramData/chocolatey/lib -name 'openssl*' -type d | head -1)" 2>/dev/null || echo "")
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DKRAKEN_BUILD_TESTS=ON \
           -DKRAKEN_BUILD_EXAMPLES=ON \
-          -DBOOST_ROOT="$env:ChocolateyInstall\lib\boost\tools"
+          ${BOOST_ROOT:+-DBOOST_ROOT="$BOOST_ROOT"} \
+          ${OPENSSL_ROOT:+-DOPENSSL_ROOT_DIR="$OPENSSL_ROOT"}
     
     - name: Build
       shell: bash

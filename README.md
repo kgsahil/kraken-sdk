@@ -5,6 +5,7 @@
 [![C++17](https://img.shields.io/badge/C++-17-blue.svg)](https://en.cppreference.com/w/cpp/17)
 [![CMake](https://img.shields.io/badge/CMake-3.16+-green.svg)](https://cmake.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/kgsahil/kraken-sdk/workflows/CI/badge.svg)](https://github.com/kgsahil/kraken-sdk/actions)
 
 A high-performance, enterprise-ready C++ SDK for streaming real-time market data from Kraken Exchange. Built with production-grade architecture, comprehensive testing, and extensive monitoring capabilities.
 
