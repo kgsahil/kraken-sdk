@@ -180,16 +180,20 @@ jobs:
         ls -la "$BOOST_ROOT/include/" | grep -i boost || echo "No boost includes found"
         # Force CMake to use FindBoost by disabling BoostConfig.cmake
         # Also set Boost_USE_STATIC_LIBS=OFF to use dynamic libraries
+        # Use CMAKE_PREFIX_PATH to help FindBoost locate Boost
+        export CMAKE_PREFIX_PATH="$BOOST_ROOT:$OPENSSL_ROOT_DIR:$CMAKE_PREFIX_PATH"
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DKRAKEN_BUILD_TESTS=ON \
           -DKRAKEN_BUILD_EXAMPLES=ON \
+          -DCMAKE_PREFIX_PATH="$CMAKE_PREFIX_PATH" \
           -DBOOST_ROOT="$BOOST_ROOT" \
           -DBOOST_INCLUDEDIR="$BOOST_INCLUDEDIR" \
           -DBOOST_LIBRARYDIR="$BOOST_LIBRARYDIR" \
           -DBoost_NO_BOOST_CMAKE=ON \
           -DBoost_USE_STATIC_LIBS=OFF \
           -DBoost_USE_MULTITHREADED=ON \
+          -DBoost_DEBUG=ON \
           -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
           -U Boost_DIR
     
@@ -241,9 +245,10 @@ jobs:
       run: |
         cd build
         echo "Running clang-tidy on changed files..."
-        # Use the check script which only checks modified/new files in CI
+        # Make script executable and use the check script which only checks modified/new files in CI
+        chmod +x ../scripts/check_clang_tidy.sh
         export CI=true
-        ../scripts/check_clang_tidy.sh 2>&1 | tee clang-tidy-output.txt || true
+        bash ../scripts/check_clang_tidy.sh 2>&1 | tee clang-tidy-output.txt || true
         # Count actual errors (lines with "error:")
         ERROR_COUNT=$(grep -c "error:" clang-tidy-output.txt || echo "0")
         if [ "$ERROR_COUNT" -gt 0 ]; then
