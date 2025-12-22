@@ -2,7 +2,7 @@
 /// @brief Unit tests for WebSocket connection handling
 
 #include <gtest/gtest.h>
-#include "../src/connection.hpp"
+#include "../src/internal/connection.hpp"
 #include <kraken/error.hpp>
 #include <thread>
 #include <chrono>

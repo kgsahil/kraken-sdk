@@ -1,3 +1,9 @@
+/// @file subscription.hpp
+/// @brief Subscription handle for managing WebSocket subscriptions
+/// 
+/// Provides a RAII-style handle for managing subscription lifecycle including
+/// pause, resume, and dynamic symbol management.
+
 #pragma once
 
 #include "types.hpp"
@@ -11,9 +17,21 @@ namespace kraken {
 class KrakenClient;
 class SubscriptionImpl; // Internal implementation detail (defined in client_impl.hpp)
 
-/// Handle for managing subscription lifecycle
+/// @brief Handle for managing subscription lifecycle
+/// 
+/// Provides a RAII-style handle for WebSocket subscriptions with lifecycle management.
+/// Allows pausing, resuming, and dynamically adding/removing symbols.
+/// 
+/// @example
+/// @code
+/// auto sub = client.subscribe(Channel::Ticker, {"BTC/USD"});
+/// sub.pause();  // Temporarily stop updates
+/// sub.add_symbols({"ETH/USD"});  // Add more symbols
+/// sub.resume();  // Resume updates
+/// @endcode
 class Subscription {
 public:
+    /// @brief Destructor - automatically unsubscribes if still active
     ~Subscription();
     
     // Move-only
@@ -26,42 +44,65 @@ public:
     // Lifecycle Control
     //--------------------------------------------------------------------------
     
-    /// Pause receiving updates (sends unsubscribe)
+    /// @brief Pause receiving updates
+    /// 
+    /// Sends an unsubscribe message to the server but keeps the subscription
+    /// handle active. Use resume() to re-enable updates.
     void pause();
     
-    /// Resume receiving updates (sends subscribe)
+    /// @brief Resume receiving updates
+    /// 
+    /// Re-subscribes to the channel and symbols after a pause().
     void resume();
     
-    /// Permanently unsubscribe
+    /// @brief Permanently unsubscribe and invalidate the handle
+    /// 
+    /// Sends unsubscribe message and marks the subscription as inactive.
+    /// The handle becomes invalid after this call.
     void unsubscribe();
     
     //--------------------------------------------------------------------------
     // Dynamic Symbol Management
     //--------------------------------------------------------------------------
     
-    /// Add symbols to this subscription
+    /// @brief Add symbols to this subscription
+    /// 
+    /// Dynamically adds new trading pairs to an existing subscription.
+    /// The new symbols are immediately subscribed to.
+    /// 
+    /// @param symbols List of trading pairs to add (e.g., {"ETH/USD", "LTC/USD"})
     void add_symbols(const std::vector<std::string>& symbols);
     
-    /// Remove symbols from this subscription
+    /// @brief Remove symbols from this subscription
+    /// 
+    /// Removes trading pairs from the subscription. Unsubscribes from
+    /// the removed symbols on the server.
+    /// 
+    /// @param symbols List of trading pairs to remove
     void remove_symbols(const std::vector<std::string>& symbols);
     
     //--------------------------------------------------------------------------
     // Query
     //--------------------------------------------------------------------------
     
-    /// Check if subscription is active
+    /// @brief Check if subscription is active
+    /// @return true if subscription is active and not paused
     bool is_active() const;
     
-    /// Check if subscription is paused
+    /// @brief Check if subscription is paused
+    /// @return true if subscription is paused
     bool is_paused() const;
     
-    /// Get subscription channel
+    /// @brief Get subscription channel
+    /// @return The channel this subscription is for
     Channel channel() const;
     
-    /// Get currently subscribed symbols
+    /// @brief Get currently subscribed symbols
+    /// @return List of trading pairs currently subscribed
     std::vector<std::string> symbols() const;
     
-    /// Get subscription ID
+    /// @brief Get subscription ID
+    /// @return Unique subscription identifier
     int id() const;
     
 private:

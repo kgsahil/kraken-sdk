@@ -2,7 +2,7 @@
 /// @brief Unit tests for order book checksum validation
 
 #include <gtest/gtest.h>
-#include "../src/book_engine.hpp"
+#include "../src/internal/book_engine.hpp"
 
 using namespace kraken;
 

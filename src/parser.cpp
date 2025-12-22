@@ -1,4 +1,4 @@
-#include "parser.hpp"
+#include "internal/parser.hpp"
 
 #include <rapidjson/document.h>
 #include <rapidjson/writer.h>

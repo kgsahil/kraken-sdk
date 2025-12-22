@@ -2,8 +2,8 @@
 /// @brief Unit tests for JSON message parsing
 
 #include <gtest/gtest.h>
-#include "../src/parser.hpp"
-#include "../src/client_impl.hpp"
+#include "../src/internal/parser.hpp"
+#include "../src/internal/client_impl.hpp"
 
 using namespace kraken;
 

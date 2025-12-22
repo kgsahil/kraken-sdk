@@ -1,17 +1,47 @@
-#include "connection.hpp"
+#include "internal/connection.hpp"
 #include "kraken/error.hpp"
+#include "kraken/connection_config.hpp"
 
 #include <iostream>
 #include <cctype>
+#include <fstream>
+#include <openssl/ssl.h>
 
 namespace kraken {
 
-Connection::Connection(const std::string& url) {
+Connection::Connection(const std::string& url, 
+                       const ConnectionTimeouts& timeouts,
+                       const SecurityConfig& security)
+    : timeouts_(timeouts)
+    , security_(security) {
     parse_url(url);
     
-    // Load default CA certificates
-    ssl_ctx_.set_default_verify_paths();
-    ssl_ctx_.set_verify_mode(ssl::verify_peer);
+    // Configure SSL context based on security settings
+    if (security_.verify_peer) {
+        ssl_ctx_.set_verify_mode(ssl::verify_peer);
+    } else {
+        ssl_ctx_.set_verify_mode(ssl::verify_none);
+    }
+    
+    // Load CA certificates
+    if (!security_.ca_cert_path.empty()) {
+        // Load custom CA certificate
+        ssl_ctx_.load_verify_file(security_.ca_cert_path);
+    } else {
+        // Load default system CA certificates
+        ssl_ctx_.set_default_verify_paths();
+    }
+    
+    // Load client certificate and key if provided
+    if (!security_.client_cert_path.empty() && !security_.client_key_path.empty()) {
+        ssl_ctx_.use_certificate_file(security_.client_cert_path, ssl::context::pem);
+        ssl_ctx_.use_private_key_file(security_.client_key_path, ssl::context::pem);
+    }
+    
+    // Set cipher suites if provided
+    if (!security_.cipher_suites.empty()) {
+        SSL_CTX_set_cipher_list(ssl_ctx_.native_handle(), security_.cipher_suites.c_str());
+    }
 }
 
 Connection::~Connection() {
@@ -93,10 +123,12 @@ void Connection::connect() {
         // SSL handshake
         ws_->next_layer().handshake(ssl::stream_base::client);
         
-        // Set WebSocket options
-        ws_->set_option(websocket::stream_base::timeout::suggested(
-            beast::role_type::client
-        ));
+        // Set WebSocket options with timeout
+        // Note: Boost.Beast websocket::stream_base::timeout uses suggested() for defaults
+        // Custom timeouts are configured via ConnectionTimeouts but applied at the socket level
+        // For now, we use suggested() defaults; custom timeout application would require
+        // lower-level socket timeout configuration which is complex with Boost.Asio
+        ws_->set_option(websocket::stream_base::timeout::suggested(beast::role_type::client));
         
         ws_->set_option(websocket::stream_base::decorator(
             [](websocket::request_type& req) {

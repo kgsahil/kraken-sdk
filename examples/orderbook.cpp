@@ -6,16 +6,9 @@
 /// Usage: ./orderbook
 /// Press Ctrl+C to exit
 
-#include <kraken/kraken.hpp>
+#include "common.hpp"
 #include <iostream>
 #include <iomanip>
-#include <csignal>
-
-std::unique_ptr<kraken::KrakenClient> g_client;
-
-void signal_handler(int) {
-    if (g_client) g_client->stop();
-}
 
 void print_book(const kraken::OrderBook& book) {
     std::cout << "\n╔═══════════════════════════════════════════════════════╗" << std::endl;
@@ -65,21 +58,30 @@ void print_book(const kraken::OrderBook& book) {
     std::cout << "╚═══════════════════════════════════════════════════════╝" << std::endl;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    // Load config file if provided
+    try {
+        examples::load_config_from_args(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading config file: " << e.what() << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [--config=path/to/config.cfg]" << std::endl;
+        return 1;
+    }
     std::cout << "=== Kraken SDK Order Book Demo ===" << std::endl;
     std::cout << "Showing BTC/USD order book with checksum validation\n" << std::endl;
     
-    g_client = std::make_unique<kraken::KrakenClient>(
+    examples::g_client = std::make_unique<kraken::KrakenClient>(
         kraken::ClientConfig::Builder()
             .validate_checksums(true)
             .build()
     );
     
-    std::signal(SIGINT, signal_handler);
+    examples::setup_signal_handlers();
+    examples::setup_common_callbacks(*examples::g_client, false);  // Less verbose
     
     // Order book callback
     int update_count = 0;
-    g_client->on_book([&update_count](const std::string& symbol, const kraken::OrderBook& book) {
+    examples::g_client->on_book([&update_count](const std::string& symbol, const kraken::OrderBook& book) {
         // Print every 5th update to reduce noise
         if (++update_count % 5 == 0) {
             // Clear screen (ANSI escape)
@@ -90,8 +92,8 @@ int main() {
         }
     });
     
-    // Error handling
-    g_client->on_error([](const kraken::Error& e) {
+    // Custom error handling for checksum mismatches
+    examples::g_client->on_error([](const kraken::Error& e) {
         if (e.code == kraken::ErrorCode::ChecksumMismatch) {
             std::cerr << "⚠️  CHECKSUM MISMATCH - requesting new snapshot" << std::endl;
         } else {
@@ -99,15 +101,11 @@ int main() {
         }
     });
     
-    g_client->on_connection_state([](kraken::ConnectionState state) {
-        std::cout << "[" << kraken::to_string(state) << "]" << std::endl;
-    });
-    
     // Subscribe to order book with depth 10
-    g_client->subscribe_book({"BTC/USD"}, 10);
+    examples::g_client->subscribe_book({"BTC/USD"}, 10);
     
     // Run
-    g_client->run();
+    examples::g_client->run();
     
     std::cout << "\nGoodbye!" << std::endl;
     return 0;

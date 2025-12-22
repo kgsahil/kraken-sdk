@@ -38,6 +38,14 @@ if(NOT rapidjson_POPULATED)
     FetchContent_Populate(rapidjson)
 endif()
 
+# spdlog - Fast C++ logging library
+FetchContent_Declare(
+    spdlog
+    GIT_REPOSITORY https://github.com/gabime/spdlog.git
+    GIT_TAG v1.12.0
+)
+FetchContent_MakeAvailable(spdlog)
+
 # Main library
 add_library(kraken STATIC
     src/client.cpp
@@ -48,6 +56,11 @@ add_library(kraken STATIC
     src/strategy_engine.cpp
     src/subscription.cpp
     src/config.cpp
+    src/config_env.cpp
+    src/telemetry.cpp
+    src/queue.cpp
+    src/logger.cpp
+    src/auth.cpp
 )
 
 target_include_directories(kraken
@@ -56,9 +69,10 @@ target_include_directories(kraken
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/internal
         ${rapidjson_SOURCE_DIR}/include
         ${SPSCQueue_SOURCE_DIR}/include
-)
+    )
 
 target_link_libraries(kraken
     PUBLIC
@@ -67,7 +81,9 @@ target_link_libraries(kraken
         Boost::system
         OpenSSL::SSL
         OpenSSL::Crypto
+        spdlog::spdlog
 )
+
 
 target_compile_definitions(kraken PRIVATE
     BOOST_ASIO_NO_DEPRECATED
@@ -75,26 +91,45 @@ target_compile_definitions(kraken PRIVATE
 
 # Examples
 if(KRAKEN_BUILD_EXAMPLES)
-    add_executable(quickstart examples/quickstart.cpp)
-    target_link_libraries(quickstart PRIVATE kraken)
+    # Common utilities for examples
+    add_library(examples_common STATIC
+        examples/common.cpp
+        examples/config.cpp
+    )
+    target_include_directories(examples_common PUBLIC
+        ${CMAKE_CURRENT_SOURCE_DIR}
+    )
+    target_include_directories(examples_common PRIVATE
+        ${spdlog_SOURCE_DIR}/include
+    )
+    target_link_libraries(examples_common PRIVATE kraken)
+    
+    # Helper function to add example with spdlog include
+    function(add_example name)
+        add_executable(${name} examples/${name}.cpp)
+        target_include_directories(${name} PRIVATE
+            ${spdlog_SOURCE_DIR}/include
+        )
+        target_link_libraries(${name} PRIVATE kraken examples_common)
+    endfunction()
 
-    add_executable(strategies examples/strategies.cpp)
-    target_link_libraries(strategies PRIVATE kraken)
-
-    add_executable(dashboard examples/dashboard.cpp)
-    target_link_libraries(dashboard PRIVATE kraken)
-
-    add_executable(orderbook examples/orderbook.cpp)
-    target_link_libraries(orderbook PRIVATE kraken)
-
-    add_executable(telemetry examples/telemetry.cpp)
-    target_link_libraries(telemetry PRIVATE kraken)
+    add_example(quickstart)
+    add_example(strategies)
+    add_example(dashboard)
+    add_example(orderbook)
+    add_example(telemetry)
+    add_example(data_collector)
+    add_example(trading_bot)
+    add_example(web_backend)
 endif()
 
 # Tools
 if(KRAKEN_BUILD_TOOLS)
     # Integration benchmark (end-to-end with live API)
     add_executable(benchmark_integration tools/benchmark.cpp)
+    target_include_directories(benchmark_integration PRIVATE
+        ${spdlog_SOURCE_DIR}/include
+    )
     target_link_libraries(benchmark_integration PRIVATE kraken)
     
     # Google Benchmark for microbenchmarks
@@ -137,11 +172,13 @@ if(KRAKEN_BUILD_TESTS)
     # Test executables - all need access to src/ for internal headers
     function(add_kraken_test name)
         add_executable(${name} tests/${name}.cpp)
-        target_link_libraries(${name} PRIVATE kraken GTest::gtest_main)
         target_include_directories(${name} PRIVATE
             ${CMAKE_CURRENT_SOURCE_DIR}/src
+            ${CMAKE_CURRENT_SOURCE_DIR}/src/internal
             ${SPSCQueue_SOURCE_DIR}/include
+            ${spdlog_SOURCE_DIR}/include
         )
+        target_link_libraries(${name} PRIVATE kraken GTest::gtest_main)
         add_test(NAME ${name} COMMAND ${name})
     endfunction()
     
@@ -165,6 +202,8 @@ if(KRAKEN_BUILD_TESTS)
 endif()
 
 # Installation
+# Note: We don't export spdlog since it's a header-only dependency
+# Users will need to include spdlog separately or we can make it optional
 install(TARGETS kraken
     EXPORT KrakenSDKTargets
     LIBRARY DESTINATION lib
@@ -176,11 +215,13 @@ install(DIRECTORY include/kraken
     DESTINATION include
 )
 
-install(EXPORT KrakenSDKTargets
-    FILE KrakenSDKTargets.cmake
-    NAMESPACE kraken::
-    DESTINATION lib/cmake/KrakenSDK
-)
+# Note: We skip the export for now due to spdlog dependency
+# Users can link against kraken directly
+# install(EXPORT KrakenSDKTargets
+#     FILE KrakenSDKTargets.cmake
+#     NAMESPACE kraken::
+#     DESTINATION lib/cmake/KrakenSDK
+# )
 
 # Package config
 include(CMakePackageConfigHelpers)

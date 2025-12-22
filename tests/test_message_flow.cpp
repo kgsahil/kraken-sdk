@@ -2,8 +2,8 @@
 /// @brief Integration tests for complete message flow (parse -> queue -> dispatch)
 
 #include <gtest/gtest.h>
-#include "../src/parser.hpp"
-#include "../src/client_impl.hpp"
+#include "../src/internal/parser.hpp"
+#include "../src/internal/client_impl.hpp"
 #include <kraken/kraken.hpp>
 #include <thread>
 #include <chrono>

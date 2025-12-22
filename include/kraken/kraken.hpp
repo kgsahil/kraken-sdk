@@ -11,10 +11,16 @@
 #include "gap_detector.hpp"
 #include "telemetry.hpp"
 #include "config.hpp"
+#include "config_env.hpp"
+#include "connection_config.hpp"
 #include "metrics.hpp"
 #include "subscription.hpp"
 #include "strategies.hpp"
 #include "client.hpp"
+#include "logger.hpp"
+
+// Note: connection_config.hpp is included via config.hpp, but we include it
+// explicitly here for convenience
 
 /// @mainpage Kraken WebSocket SDK
 /// 

@@ -16,6 +16,8 @@
 #include <functional>
 #include <atomic>
 #include <unordered_map>
+#include <mutex>
+#include <cstdint>
 
 namespace kraken {
 
@@ -35,6 +37,15 @@ struct TelemetryConfig {
     bool enable_logs = false;     // Disabled by default
     
     std::chrono::seconds metrics_interval{15};
+    
+    // HTTP server for Prometheus scraping
+    bool enable_http_server = false;
+    uint16_t http_server_port = 9090;
+    
+    // OTLP export settings
+    bool enable_otlp_export = false;
+    int max_export_retries = 3;
+    std::chrono::milliseconds export_timeout{5000};
     
     /// Create a builder for fluent configuration
     class Builder;
@@ -79,6 +90,27 @@ public:
     
     Builder& metrics_interval(std::chrono::seconds interval) {
         config_.metrics_interval = interval;
+        return *this;
+    }
+    
+    Builder& http_server(bool enabled, uint16_t port = 9090) {
+        config_.enable_http_server = enabled;
+        config_.http_server_port = port;
+        return *this;
+    }
+    
+    Builder& otlp_export(bool enabled) {
+        config_.enable_otlp_export = enabled;
+        return *this;
+    }
+    
+    Builder& export_retries(int retries) {
+        config_.max_export_retries = retries;
+        return *this;
+    }
+    
+    Builder& export_timeout(std::chrono::milliseconds timeout) {
+        config_.export_timeout = timeout;
         return *this;
     }
     
@@ -348,15 +380,14 @@ private:
 /// // Access metrics
 /// telemetry->metrics().increment_messages_received();
 /// std::cout << telemetry->metrics().to_prometheus();
-class Telemetry {
+class Telemetry : public std::enable_shared_from_this<Telemetry> {
 public:
-    explicit Telemetry(TelemetryConfig config = {})
-        : config_(std::move(config)) {}
-    
-    /// Create telemetry with configuration
+    /// Create telemetry with configuration (use this instead of constructor)
     static std::shared_ptr<Telemetry> create(TelemetryConfig config = {}) {
-        return std::make_shared<Telemetry>(std::move(config));
+        return std::shared_ptr<Telemetry>(new Telemetry(std::move(config)));
     }
+    
+    ~Telemetry();
     
     /// Get metrics collector
     MetricsCollector& metrics() { return metrics_; }
@@ -371,22 +402,39 @@ public:
     /// Enable/disable telemetry
     void set_enabled(bool enabled) { enabled_ = enabled; }
     
-    /// Flush metrics to OTLP endpoint (placeholder for full OTEL integration)
-    bool flush() {
-        // In full OTEL integration, this would push to the collector
-        // For now, just return success
-        return true;
-    }
+    /// Start telemetry services (HTTP server, OTLP export)
+    /// @return true if started successfully
+    bool start();
+    
+    /// Stop telemetry services
+    void stop();
+    
+    /// Flush metrics to OTLP endpoint
+    /// @return true if export succeeded
+    bool flush();
     
     /// Get Prometheus metrics endpoint content
     std::string prometheus_metrics() const {
         return metrics_.to_prometheus();
     }
+    
+    /// Check if HTTP server is running
+    bool is_http_server_running() const;
+    
+    /// Get HTTP server port
+    uint16_t http_server_port() const;
 
 private:
+    // Private constructor - use create() instead
+    explicit Telemetry(TelemetryConfig config);
+    
     TelemetryConfig config_;
     MetricsCollector metrics_;
     bool enabled_ = true;
+    
+    // PIMPL for HTTP server and OTLP exporter
+    class Impl;
+    std::unique_ptr<Impl> impl_;
 };
 
 } // namespace kraken

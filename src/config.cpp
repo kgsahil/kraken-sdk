@@ -66,6 +66,21 @@ ClientConfig::Builder& ClientConfig::Builder::telemetry(TelemetryConfig config) 
     return *this;
 }
 
+ClientConfig::Builder& ClientConfig::Builder::connection_timeouts(ConnectionTimeouts timeouts) {
+    config_.connection_timeouts_ = std::move(timeouts);
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::security(SecurityConfig security) {
+    config_.security_config_ = std::move(security);
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::use_queue(bool enable) {
+    config_.use_queue_ = enable;
+    return *this;
+}
+
 // Legacy methods (deprecated)
 ClientConfig::Builder& ClientConfig::Builder::reconnect_attempts(int attempts) {
     legacy_attempts_ = attempts;

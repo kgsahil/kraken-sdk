@@ -2,7 +2,7 @@
 /// @brief Microbenchmark for CRC32 checksum calculation
 
 #include <benchmark/benchmark.h>
-#include "book_engine.hpp"
+#include "internal/book_engine.hpp"
 #include <vector>
 #include <random>
 

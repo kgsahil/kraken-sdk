@@ -1,11 +1,29 @@
-#include "client_impl.hpp"
-#include "connection.hpp"
-#include "parser.hpp"
+#include "internal/client_impl.hpp"
+#include "internal/connection.hpp"
+#include "internal/parser.hpp"
+#include "queue.cpp"  // Include template implementation
+#include "internal/auth.hpp"
+#include "kraken/logger.hpp"
 
-#include <iostream>
 #include <algorithm>
 
 namespace kraken {
+
+//------------------------------------------------------------------------------
+// Queue Factory Helper
+//------------------------------------------------------------------------------
+
+namespace {
+    std::unique_ptr<MessageQueue<Message>> create_queue(const ClientConfig& config) {
+        // Only create queue if queue mode is enabled
+        if (!config.use_queue()) {
+            return nullptr;
+        }
+        
+        // Default: use rigtorp::SPSCQueue implementation
+        return std::make_unique<DefaultMessageQueue<Message>>(config.queue_capacity());
+    }
+}
 
 //------------------------------------------------------------------------------
 // SubscriptionImpl - Clean implementation with type-safe callbacks
@@ -146,7 +164,7 @@ size_t StrategyEngine::count() const {
 
 KrakenClient::Impl::Impl(ClientConfig config)
     : config_(std::move(config))
-    , queue_(std::make_unique<rigtorp::SPSCQueue<Message>>(config_.queue_capacity()))
+    , queue_(config_.use_queue() ? create_queue(config_) : nullptr)
     , start_time_(std::chrono::steady_clock::now())
     , backoff_strategy_(config_.backoff_strategy())
     , gap_tracker_(config_.gap_detection_config()) {
@@ -172,6 +190,8 @@ KrakenClient::Impl::Impl(ClientConfig config)
     // Initialize telemetry if configured
     if (config_.telemetry_config().enable_metrics) {
         telemetry_ = Telemetry::create(config_.telemetry_config());
+        // Start telemetry services (HTTP server, OTLP export)
+        telemetry_->start();
     }
 }
 
@@ -260,7 +280,11 @@ void KrakenClient::Impl::connect() {
     set_connection_state(ConnectionState::Connecting);
     
     try {
-        connection_ = std::make_unique<Connection>(config_.url());
+        connection_ = std::make_unique<Connection>(
+            config_.url(),
+            config_.connection_timeouts(),
+            config_.security_config()
+        );
         connection_->connect();
         set_connection_state(ConnectionState::Connected);
     } catch (const std::exception& e) {
@@ -431,8 +455,15 @@ void KrakenClient::Impl::run() {
     // Start I/O thread
     io_thread_ = std::thread([this]() { io_loop(); });
     
-    // Run dispatcher in current thread
-    dispatcher_loop();
+    // Run dispatcher in current thread (only if queue is enabled)
+    if (queue_) {
+        dispatcher_loop();
+    } else {
+        // Direct mode: I/O thread handles everything, just wait for it
+        if (io_thread_.joinable()) {
+            io_thread_.join();
+        }
+    }
     
     // Wait for I/O thread to finish
     if (io_thread_.joinable()) {
@@ -459,8 +490,10 @@ void KrakenClient::Impl::run_async() {
     // Start I/O thread
     io_thread_ = std::thread([this]() { io_loop(); });
     
-    // Start dispatcher thread
-    dispatcher_thread_ = std::thread([this]() { dispatcher_loop(); });
+    // Start dispatcher thread (only if queue is enabled)
+    if (queue_) {
+        dispatcher_thread_ = std::thread([this]() { dispatcher_loop(); });
+    }
 }
 
 void KrakenClient::Impl::stop() {
@@ -471,6 +504,11 @@ void KrakenClient::Impl::stop() {
     }
     
     stop_requested_ = true;
+    
+    // Stop telemetry services
+    if (telemetry_) {
+        telemetry_->stop();
+    }
     
     // Wake up dispatcher thread if waiting on condition variable
     queue_cv_.notify_all();
@@ -484,7 +522,7 @@ void KrakenClient::Impl::stop() {
     if (io_thread_.joinable()) {
         io_thread_.join();
     }
-    if (dispatcher_thread_.joinable()) {
+    if (queue_ && dispatcher_thread_.joinable()) {
         dispatcher_thread_.join();
     }
 }
@@ -523,22 +561,57 @@ void KrakenClient::Impl::io_loop() {
                 telemetry_->metrics().increment_messages_received(channel);
             }
             
-            // Push to queue
-            if (queue_->try_push(std::move(msg))) {
-                // Notify dispatcher thread (efficient wake-up)
-                queue_cv_.notify_one();
+            // Process message: either via queue or directly
+            if (queue_) {
+                // Queue mode: push to queue for dispatcher thread
+                if (queue_->try_push(std::move(msg))) {
+                    // Notify dispatcher thread (efficient wake-up)
+                    queue_cv_.notify_one();
+                } else {
+                    // Queue full - drop message (lock-free)
+                    msg_dropped_.fetch_add(1, std::memory_order_relaxed);
+                    
+                    // Update telemetry if enabled
+                    if (telemetry_) {
+                        telemetry_->metrics().increment_messages_dropped();
+                    }
+                    
+                    // Notify via error callback
+                    safe_invoke_error_callback(ErrorCode::QueueOverflow, 
+                                               "Message queue overflow", "");
+                }
             } else {
-                // Queue full - drop message (lock-free)
-                msg_dropped_.fetch_add(1, std::memory_order_relaxed);
+                // Direct mode: process immediately in I/O thread
+                // Check for gaps in sequence numbers
+                if (msg.has_sequence) {
+                    gap_tracker_.check(msg.channel, msg.symbol, msg.sequence);
+                }
+                
+                // Dispatch directly (blocks I/O during callback execution)
+                dispatch(msg);
+                
+                // Update metrics (lock-free atomics)
+                msg_processed_.fetch_add(1, std::memory_order_relaxed);
+                
+                // Track latency
+                auto now = std::chrono::steady_clock::now();
+                auto latency_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                    now - msg.receive_time
+                ).count();
+                
+                int64_t current_max = latency_max_us_.load(std::memory_order_relaxed);
+                while (latency_us > current_max) {
+                    if (latency_max_us_.compare_exchange_weak(current_max, latency_us,
+                            std::memory_order_relaxed)) {
+                        break;
+                    }
+                }
                 
                 // Update telemetry if enabled
                 if (telemetry_) {
-                    telemetry_->metrics().increment_messages_dropped();
+                    telemetry_->metrics().increment_messages_processed();
+                    telemetry_->metrics().record_latency_us(latency_us);
                 }
-                
-                // Notify via error callback
-                safe_invoke_error_callback(ErrorCode::QueueOverflow, 
-                                           "Message queue overflow", "");
             }
             
         } catch (const std::exception& e) {
@@ -552,6 +625,9 @@ void KrakenClient::Impl::io_loop() {
 }
 
 void KrakenClient::Impl::dispatcher_loop() {
+    // Only run if queue is enabled
+    if (!queue_) return;
+    
     while (!stop_requested_) {
         Message* msg = queue_->front();
         
@@ -747,7 +823,11 @@ void KrakenClient::Impl::handle_reconnect() {
         if (stop_requested_) break;
         
         try {
-            connection_ = std::make_unique<Connection>(config_.url());
+            connection_ = std::make_unique<Connection>(
+                config_.url(),
+                config_.connection_timeouts(),
+                config_.security_config()
+            );
             connection_->connect();
             set_connection_state(ConnectionState::Connected);
             
@@ -848,6 +928,10 @@ std::optional<OrderBook> KrakenClient::Impl::latest_book(const std::string& symb
         return it->second;
     }
     return std::nullopt;
+}
+
+std::shared_ptr<Telemetry> KrakenClient::Impl::get_telemetry_instance() const {
+    return telemetry_;
 }
 
 std::unordered_map<std::string, Ticker> KrakenClient::Impl::all_tickers() const {

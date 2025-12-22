@@ -1,3 +1,9 @@
+/// @file strategies.hpp
+/// @brief Trading strategy engine and alert system
+/// 
+/// Provides built-in alert strategies (PriceAlert, VolumeSpike, SpreadAlert)
+/// and extensible base class for custom trading strategies.
+
 #pragma once
 
 #include "types.hpp"
@@ -16,15 +22,19 @@ namespace kraken {
 // Alert Types
 //------------------------------------------------------------------------------
 
-/// Alert information when strategy triggers
+/// @brief Alert information when a strategy condition is met
+/// 
+/// Contains details about the alert trigger including strategy name,
+/// symbol, price, and timestamp.
 struct Alert {
-    std::string strategy_name;
-    std::string symbol;
-    double price = 0.0;
-    std::string message;
-    std::chrono::system_clock::time_point timestamp;
+    std::string strategy_name;  ///< Name of the strategy that triggered
+    std::string symbol;         ///< Trading pair symbol
+    double price = 0.0;         ///< Price at which alert triggered
+    std::string message;        ///< Alert message
+    std::chrono::system_clock::time_point timestamp;  ///< Alert timestamp
     
-    /// Convert to JSON string (for web integration)
+    /// @brief Convert to JSON string for web integration
+    /// @return JSON representation of the alert
     std::string to_json() const {
         auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(
             timestamp.time_since_epoch()).count();
@@ -37,30 +47,56 @@ struct Alert {
     }
 };
 
-/// Callback type for alerts
+/// @brief Callback type for alerts
+/// 
+/// Called when a strategy condition is met.
+/// 
+/// @param alert Alert information
 using AlertCallback = std::function<void(const Alert&)>;
 
 //------------------------------------------------------------------------------
 // Strategy Base Class
 //------------------------------------------------------------------------------
 
-/// Base class for alert strategies
+/// @brief Base class for alert strategies
+/// 
+/// Implement this interface to create custom trading strategies that
+/// monitor market conditions and trigger alerts.
+/// 
+/// @example
+/// @code
+/// class CustomStrategy : public AlertStrategy {
+///     bool check(const Ticker& ticker) override {
+///         return ticker.spread() > 100.0;
+///     }
+///     std::string name() const override { return "CustomStrategy"; }
+///     std::vector<std::string> symbols() const override { return {"BTC/USD"}; }
+/// };
+/// @endcode
 class AlertStrategy {
 public:
     virtual ~AlertStrategy() = default;
     
-    /// Check if alert condition is met
+    /// @brief Check if alert condition is met
+    /// 
+    /// Called on every ticker update. Return true to trigger the alert.
+    /// 
     /// @param ticker Current ticker data
     /// @return true if condition met, alert should fire
     virtual bool check(const Ticker& ticker) = 0;
     
-    /// Get strategy name (for logging/debugging)
+    /// @brief Get strategy name (for logging/debugging)
+    /// @return Strategy name
     virtual std::string name() const = 0;
     
-    /// Get symbols this strategy applies to
+    /// @brief Get symbols this strategy applies to
+    /// @return List of trading pairs this strategy monitors
     virtual std::vector<std::string> symbols() const = 0;
     
-    /// Reset strategy state (e.g., for re-arming alerts)
+    /// @brief Reset strategy state (e.g., for re-arming alerts)
+    /// 
+    /// Called when strategy is removed or reset. Override to clear
+    /// internal state if needed.
     virtual void reset() {}
 };
 
@@ -68,9 +104,24 @@ public:
 // PriceAlert Strategy
 //------------------------------------------------------------------------------
 
-/// Alert when price crosses a threshold
+/// @brief Alert when price crosses a threshold
+/// 
+/// Monitors a trading pair and triggers when price goes above or below
+/// specified thresholds. One-time alert (fires once, then requires reset).
+/// 
+/// @example
+/// @code
+/// auto alert = PriceAlert::Builder()
+///     .symbol("BTC/USD")
+///     .above(100000.0)
+///     .build();
+/// client.add_alert(alert, [](const Alert& a) {
+///     std::cout << "Price alert: " << a.message << std::endl;
+/// });
+/// @endcode
 class PriceAlert : public AlertStrategy {
 public:
+    /// @brief Builder for PriceAlert configuration
     class Builder {
     public:
         Builder& symbol(const std::string& sym) {
@@ -143,9 +194,22 @@ private:
 // VolumeSpike Strategy
 //------------------------------------------------------------------------------
 
-/// Alert when volume exceeds N× recent average
+/// @brief Alert when volume exceeds N× recent average
+/// 
+/// Monitors trading volume and triggers when current volume exceeds
+/// the average of recent samples by a multiplier.
+/// 
+/// @example
+/// @code
+/// auto alert = VolumeSpike::Builder()
+///     .symbols({"BTC/USD", "ETH/USD"})
+///     .multiplier(2.5)
+///     .lookback(50)
+///     .build();
+/// @endcode
 class VolumeSpike : public AlertStrategy {
 public:
+    /// @brief Builder for VolumeSpike configuration
     class Builder {
     public:
         Builder& symbols(const std::vector<std::string>& syms) {
@@ -230,9 +294,22 @@ private:
 // SpreadAlert Strategy
 //------------------------------------------------------------------------------
 
-/// Alert when spread crosses a threshold
+/// @brief Alert when spread crosses a threshold
+/// 
+/// Monitors bid-ask spread and triggers when spread goes outside
+/// the specified min/max range.
+/// 
+/// @example
+/// @code
+/// auto alert = SpreadAlert::Builder()
+///     .symbol("BTC/USD")
+///     .min_spread(10.0)
+///     .max_spread(100.0)
+///     .build();
+/// @endcode
 class SpreadAlert : public AlertStrategy {
 public:
+    /// @brief Builder for SpreadAlert configuration
     class Builder {
     public:
         Builder& symbol(const std::string& sym) {

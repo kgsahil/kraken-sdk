@@ -2,7 +2,7 @@
 /// @brief Microbenchmark for order book operations
 
 #include <benchmark/benchmark.h>
-#include "book_engine.hpp"
+#include "internal/book_engine.hpp"
 #include <vector>
 #include <random>
 

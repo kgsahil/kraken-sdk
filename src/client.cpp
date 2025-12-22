@@ -1,5 +1,5 @@
 #include "kraken/client.hpp"
-#include "client_impl.hpp"
+#include "internal/client_impl.hpp"
 
 namespace kraken {
 
@@ -123,6 +123,14 @@ bool KrakenClient::is_running() const {
 
 Metrics KrakenClient::get_metrics() const {
     return impl_->get_metrics();
+}
+
+//------------------------------------------------------------------------------
+// Telemetry
+//------------------------------------------------------------------------------
+
+std::shared_ptr<Telemetry> KrakenClient::get_telemetry_instance() const {
+    return impl_->get_telemetry_instance();
 }
 
 //------------------------------------------------------------------------------

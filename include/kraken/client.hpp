@@ -1,3 +1,9 @@
+/// @file client.hpp
+/// @brief Main Kraken WebSocket API client
+/// 
+/// Provides the primary KrakenClient interface for connecting to Kraken,
+/// subscribing to channels, managing strategies, and handling callbacks.
+
 #pragma once
 
 #include "types.hpp"
@@ -153,6 +159,14 @@ public:
     
     /// Get current metrics snapshot
     Metrics get_metrics() const;
+    
+    //--------------------------------------------------------------------------
+    // Telemetry
+    //--------------------------------------------------------------------------
+    
+    /// Get the shared telemetry instance (for advanced usage like Prometheus scraping)
+    /// @return Shared pointer to the Telemetry instance, or nullptr if not enabled
+    std::shared_ptr<Telemetry> get_telemetry_instance() const;
     
     //--------------------------------------------------------------------------
     // Data Snapshots (thread-safe)

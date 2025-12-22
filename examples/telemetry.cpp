@@ -7,20 +7,11 @@
 /// Usage: ./telemetry
 /// Press Ctrl+C to exit
 
-#include <kraken/kraken.hpp>
+#include "common.hpp"
 #include <iostream>
 #include <iomanip>
-#include <csignal>
 #include <thread>
 #include <chrono>
-
-std::unique_ptr<kraken::KrakenClient> g_client;
-std::atomic<bool> g_running{true};
-
-void signal_handler(int) {
-    g_running = false;
-    if (g_client) g_client->stop();
-}
 
 void print_metrics(const kraken::Metrics& m) {
     std::cout << "\033[2J\033[H";  // Clear screen
@@ -48,22 +39,32 @@ void print_metrics(const kraken::Metrics& m) {
     std::cout << "\nPress Ctrl+C to exit\n";
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+    // Load config file if provided
+    try {
+        examples::load_config_from_args(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading config file: " << e.what() << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [--config=path/to/config.cfg]" << std::endl;
+        return 1;
+    }
     std::cout << "=== Kraken SDK Telemetry Demo ===" << std::endl;
     std::cout << "Demonstrating OpenTelemetry metrics collection\n" << std::endl;
     
     //--------------------------------------------------------------------------
-    // Configure Telemetry
+    // Configure Telemetry with HTTP Server
     //--------------------------------------------------------------------------
     
     auto config = kraken::ClientConfig::Builder()
-        // Enable telemetry with custom configuration
+        // Enable telemetry with HTTP server for Prometheus scraping
         .telemetry(kraken::TelemetryConfig::Builder()
             .service_name("telemetry-demo")
             .service_version("1.0.0")
             .environment("demo")
             .metrics(true)  // Enable metrics collection
-            .metrics_interval(std::chrono::seconds(15))  // Export interval (for future OTLP)
+            .http_server(true, 9090)  // Enable HTTP server on port 9090
+            .otlp_export(false)  // OTLP export disabled for this demo
+            .metrics_interval(std::chrono::seconds(15))
             .build())
         // Enable gap detection to show gap metrics
         .gap_detection(true)
@@ -73,12 +74,15 @@ int main() {
         })
         .build();
     
-    g_client = std::make_unique<kraken::KrakenClient>(config);
-    std::signal(SIGINT, signal_handler);
+    examples::g_client = std::make_unique<kraken::KrakenClient>(config);
+    examples::setup_signal_handlers();
     
     std::cout << "Telemetry configured:" << std::endl;
     std::cout << "  - Service: telemetry-demo" << std::endl;
     std::cout << "  - Metrics: Enabled" << std::endl;
+    std::cout << "  - HTTP Server: Enabled on port 9090" << std::endl;
+    std::cout << "  - Prometheus: http://localhost:9090/metrics" << std::endl;
+    std::cout << "  - Health: http://localhost:9090/health" << std::endl;
     std::cout << "  - Gap Detection: Enabled\n" << std::endl;
     
     //--------------------------------------------------------------------------
@@ -86,7 +90,7 @@ int main() {
     //--------------------------------------------------------------------------
     
     int ticker_count = 0;
-    g_client->on_ticker([&ticker_count](const kraken::Ticker& t) {
+    examples::g_client->on_ticker([&ticker_count](const kraken::Ticker& t) {
         // Metrics are automatically collected - no manual tracking needed!
         ticker_count++;
         
@@ -97,11 +101,11 @@ int main() {
         }
     });
     
-    g_client->on_error([](const kraken::Error& e) {
+    examples::g_client->on_error([](const kraken::Error& e) {
         std::cerr << "\nError: " << e.message << std::endl;
     });
     
-    g_client->on_connection_state([](kraken::ConnectionState state) {
+    examples::g_client->on_connection_state([](kraken::ConnectionState state) {
         std::cout << "\n[Connection: " << kraken::to_string(state) << "]" << std::endl;
     });
     
@@ -112,10 +116,10 @@ int main() {
     std::cout << "Subscribing to BTC/USD and ETH/USD tickers..." << std::endl;
     std::cout << "Metrics are automatically collected in the background.\n" << std::endl;
     
-    g_client->subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
+    examples::g_client->subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
     
     // Run client in background
-    g_client->run_async();
+    examples::g_client->run_async();
     
     // Wait for connection
     std::this_thread::sleep_for(std::chrono::seconds(2));
@@ -126,9 +130,9 @@ int main() {
     
     std::cout << "\nDisplaying metrics every 3 seconds...\n" << std::endl;
     
-    while (g_running && g_client->is_running()) {
+    while (examples::g_running && examples::g_client->is_running()) {
         // Get metrics snapshot (reads from Telemetry if enabled)
-        auto metrics = g_client->get_metrics();
+        auto metrics = examples::g_client->get_metrics();
         
         // Display metrics
         print_metrics(metrics);
@@ -142,7 +146,7 @@ int main() {
     //--------------------------------------------------------------------------
     
     std::cout << "\n\n=== Final Metrics Summary ===" << std::endl;
-    auto final_metrics = g_client->get_metrics();
+    auto final_metrics = examples::g_client->get_metrics();
     
     std::cout << "Total Messages Received:  " << final_metrics.messages_received << std::endl;
     std::cout << "Total Messages Processed: " << final_metrics.messages_processed << std::endl;
@@ -151,14 +155,16 @@ int main() {
               << final_metrics.messages_per_second() << " msg/sec" << std::endl;
     std::cout << "Max Latency:              " << final_metrics.latency_max_us.count() 
               << " μs" << std::endl;
-    std::cout << "Gaps Detected:            " << g_client->gap_count() << std::endl;
+    std::cout << "Gaps Detected:            " << examples::g_client->gap_count() << std::endl;
     
     std::cout << "\n=== Metrics Export ===" << std::endl;
-    std::cout << "Metrics are collected via Telemetry and can be exported to:" << std::endl;
-    std::cout << "  - Prometheus (via prometheus_metrics() method)" << std::endl;
-    std::cout << "  - OTLP collectors (gRPC/HTTP)" << std::endl;
-    std::cout << "  - JSON format (via to_json() method)" << std::endl;
-    std::cout << "\nSee docs/METRICS.md for details.\n" << std::endl;
+    std::cout << "Metrics are available via:" << std::endl;
+    std::cout << "  - HTTP Server: http://localhost:9090/metrics (Prometheus format)" << std::endl;
+    std::cout << "  - Health Check: http://localhost:9090/health" << std::endl;
+    std::cout << "  - OTLP Export: Configured via telemetry config" << std::endl;
+    std::cout << "  - JSON format: metrics.to_json() method" << std::endl;
+    std::cout << "\nTry: curl http://localhost:9090/metrics" << std::endl;
+    std::cout << "See docs/METRICS.md for details.\n" << std::endl;
     
     std::cout << "Goodbye!" << std::endl;
     return 0;

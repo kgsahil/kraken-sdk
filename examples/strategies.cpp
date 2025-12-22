@@ -6,23 +6,25 @@
 /// Usage: ./strategies
 /// Press Ctrl+C to exit
 
-#include <kraken/kraken.hpp>
+#include "common.hpp"
 #include <iostream>
 #include <iomanip>
-#include <csignal>
 
-std::unique_ptr<kraken::KrakenClient> g_client;
-
-void signal_handler(int) {
-    if (g_client) g_client->stop();
-}
-
-int main() {
+int main(int argc, char* argv[]) {
+    // Load config file if provided
+    try {
+        examples::load_config_from_args(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading config file: " << e.what() << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [--config=path/to/config.cfg]" << std::endl;
+        return 1;
+    }
     std::cout << "=== Kraken SDK Strategy Engine Demo ===" << std::endl;
     std::cout << "Monitoring BTC/USD and ETH/USD for trading signals\n" << std::endl;
     
-    g_client = std::make_unique<kraken::KrakenClient>();
-    std::signal(SIGINT, signal_handler);
+    examples::g_client = examples::create_default_client();
+    examples::setup_signal_handlers();
+    examples::setup_common_callbacks(*examples::g_client);
     
     //--------------------------------------------------------------------------
     // Strategy 1: Price Alert
@@ -35,7 +37,7 @@ int main() {
         .below(90000.0)
         .build();
     
-    g_client->add_alert(btc_price, [](const kraken::Alert& alert) {
+    examples::g_client->add_alert(btc_price, [](const kraken::Alert& alert) {
         std::cout << "\n🚨 PRICE ALERT: " << alert.symbol << std::endl;
         std::cout << "   " << alert.message << std::endl;
         std::cout << "   Current price: $" << std::fixed << std::setprecision(2) 
@@ -52,7 +54,7 @@ int main() {
         .below(3000.0)
         .build();
     
-    g_client->add_alert(eth_price, [](const kraken::Alert& alert) {
+    examples::g_client->add_alert(eth_price, [](const kraken::Alert& alert) {
         std::cout << "\n🚨 PRICE ALERT: " << alert.symbol << std::endl;
         std::cout << "   " << alert.message << std::endl;
         std::cout << "   Current price: $" << std::fixed << std::setprecision(2)
@@ -69,7 +71,7 @@ int main() {
         .lookback(50)     // Compare to last 50 samples
         .build();
     
-    g_client->add_alert(volume_spike, [](const kraken::Alert& alert) {
+    examples::g_client->add_alert(volume_spike, [](const kraken::Alert& alert) {
         std::cout << "\n📊 VOLUME SPIKE: " << alert.symbol << std::endl;
         std::cout << "   Unusual volume detected!" << std::endl;
     });
@@ -79,7 +81,7 @@ int main() {
     //--------------------------------------------------------------------------
     
     int count = 0;
-    g_client->on_ticker([&count](const kraken::Ticker& t) {
+    examples::g_client->on_ticker([&count](const kraken::Ticker& t) {
         // Show every 10th ticker to reduce noise
         if (++count % 10 == 0) {
             std::cout << t.symbol << ": $" << std::fixed << std::setprecision(2)
@@ -88,26 +90,14 @@ int main() {
     });
     
     //--------------------------------------------------------------------------
-    // Error Handling
-    //--------------------------------------------------------------------------
-    
-    g_client->on_error([](const kraken::Error& e) {
-        std::cerr << "Error: " << e.message << std::endl;
-    });
-    
-    g_client->on_connection_state([](kraken::ConnectionState state) {
-        std::cout << "[" << kraken::to_string(state) << "]" << std::endl;
-    });
-    
-    //--------------------------------------------------------------------------
     // Run
     //--------------------------------------------------------------------------
     
-    std::cout << "Active strategies: " << g_client->alert_count() << std::endl;
+    std::cout << "Active strategies: " << examples::g_client->alert_count() << std::endl;
     std::cout << "Subscribing to BTC/USD and ETH/USD tickers...\n" << std::endl;
     
-    g_client->subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
-    g_client->run();
+    examples::g_client->subscribe(kraken::Channel::Ticker, {"BTC/USD", "ETH/USD"});
+    examples::g_client->run();
     
     std::cout << "\nGoodbye!" << std::endl;
     return 0;

@@ -2,7 +2,7 @@
 /// @brief Microbenchmark for JSON parsing performance
 
 #include <benchmark/benchmark.h>
-#include "parser.hpp"
+#include "internal/parser.hpp"
 #include <string>
 #include <vector>
 

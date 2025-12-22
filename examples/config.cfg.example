@@ -1,0 +1,59 @@
+# Kraken SDK Configuration File
+# Format: KEY=VALUE (one per line)
+# Lines starting with # are comments
+# Empty lines are ignored
+#
+# Usage: Copy this file and customize it, then run:
+#   ./dashboard --config=path/to/config.cfg
+
+# Essential: WebSocket URL (required)
+KRAKEN_WS_URL=wss://ws.kraken.com/v2
+
+# Authentication (optional - for private channels)
+# KRAKEN_API_KEY=your-api-key
+# KRAKEN_API_SECRET=your-api-secret
+
+# Queue Settings
+ENABLE_SPSC_QUEUE=true
+SPSC_QUEUE_SIZE=131072
+
+# Connection Retry Settings
+WS_CONN_RETRY_DELAY_MS=1000
+WS_CONN_RETRY_MULTIPLIER=2.0
+WS_CONN_RETRY_TIMES=10
+WS_CONN_RETRY_MAX_DELAY_MS=30000
+WS_CONN_RETRY_JITTER=0.2
+
+# Connection Timeouts
+WS_CONN_TIMEOUT_MS=10000
+WS_READ_TIMEOUT_MS=30000
+WS_WRITE_TIMEOUT_MS=10000
+WS_PING_INTERVAL_SEC=30
+WS_PONG_TIMEOUT_SEC=10
+
+# Security/TLS Settings
+TLS_VERIFY_PEER=true
+# TLS_CA_CERT_PATH=/path/to/ca.crt
+# TLS_CLIENT_CERT_PATH=/path/to/client.crt
+# TLS_CLIENT_KEY_PATH=/path/to/client.key
+# TLS_CIPHER_SUITES=ECDHE-RSA-AES256-GCM-SHA384
+
+# Data Integrity
+VALIDATE_CHECKSUMS=true
+ENABLE_GAP_DETECTION=true
+GAP_TOLERANCE=5
+
+# Telemetry (optional)
+# ENABLE_TELEMETRY=true
+# TELEMETRY_SERVICE_NAME=my-service
+# TELEMETRY_ENVIRONMENT=production
+# TELEMETRY_HTTP_SERVER=true
+# TELEMETRY_HTTP_PORT=9090
+# TELEMETRY_OTLP_EXPORT=false
+# TELEMETRY_OTLP_ENDPOINT=http://localhost:4318
+
+# Logging
+LOG_LEVEL=info
+LOG_CONSOLE=true
+# LOG_FILE=/var/log/kraken-sdk.log
+
