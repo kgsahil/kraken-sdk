@@ -11,9 +11,11 @@ namespace kraken {
 
 Connection::Connection(const std::string& url, 
                        const ConnectionTimeouts& timeouts,
-                       const SecurityConfig& security)
+                       const SecurityConfig& security,
+                       std::shared_ptr<RateLimiter> rate_limiter)
     : timeouts_(timeouts)
-    , security_(security) {
+    , security_(security)
+    , rate_limiter_(std::move(rate_limiter)) {
     parse_url(url);
     
     // Configure SSL context based on security settings
@@ -178,6 +180,14 @@ bool Connection::is_open() const {
 void Connection::send(const std::string& message) {
     if (!is_open()) {
         throw ConnectionError("Not connected");
+    }
+    
+    // Apply rate limiting if enabled
+    if (rate_limiter_) {
+        // Block until token is available (with reasonable timeout)
+        if (!rate_limiter_->acquire_blocking(std::chrono::seconds(30))) {
+            throw ConnectionError("Rate limit: timeout waiting for token");
+        }
     }
     
     std::lock_guard<std::mutex> lock(send_mutex_);

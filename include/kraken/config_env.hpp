@@ -78,6 +78,11 @@ namespace kraken {
 /// - `TLS_CIPHER_SUITES` - Allowed cipher suites (default: system default)
 /// - `ALLOW_INSECURE` - Allow insecure connections (default: false, dev only)
 /// 
+/// **Rate Limiting:**
+/// - `RATE_LIMIT_ENABLED` - Enable/disable rate limiting (default: false)
+/// - `RATE_LIMIT_REQUESTS_PER_SEC` - Rate limit in requests per second (default: 10.0)
+/// - `RATE_LIMIT_BURST_SIZE` - Maximum burst capacity (default: 20)
+/// 
 /// @example
 /// ```cpp
 /// auto config = kraken::config_from_env();

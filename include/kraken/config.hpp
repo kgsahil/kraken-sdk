@@ -11,6 +11,7 @@
 #include "gap_detector.hpp"
 #include "telemetry.hpp"
 #include "connection_config.hpp"
+#include "rate_limiter.hpp"
 #include <string>
 #include <chrono>
 #include <memory>
@@ -116,6 +117,14 @@ public:
     /// @return Security/TLS config
     const SecurityConfig& security_config() const { return security_config_; }
     
+    /// @brief Get rate limiter configuration
+    /// @return Rate limiter (may be null if disabled)
+    std::shared_ptr<RateLimiter> rate_limiter() const { return rate_limiter_; }
+    
+    /// @brief Check if rate limiting is enabled
+    /// @return true if rate limiting is enabled
+    bool rate_limiting_enabled() const { return rate_limiter_ != nullptr; }
+    
     // Legacy accessors (deprecated, for backward compatibility)
     [[deprecated("Use backoff_strategy() instead")]]
     int reconnect_attempts() const { 
@@ -149,6 +158,7 @@ private:
     TelemetryConfig telemetry_config_;
     ConnectionTimeouts connection_timeouts_;
     SecurityConfig security_config_;
+    std::shared_ptr<RateLimiter> rate_limiter_;  // null if disabled
 };
 
 //------------------------------------------------------------------------------
@@ -245,6 +255,17 @@ public:
     /// @param security TLS/SSL security settings
     /// @return Reference to this builder
     Builder& security(SecurityConfig security);
+    
+    /// @brief Enable/disable rate limiting
+    /// 
+    /// When enabled, outbound WebSocket messages are throttled to prevent
+    /// API rate limiting from Kraken.
+    /// 
+    /// @param enabled true to enable rate limiting (default: false)
+    /// @param requests_per_sec Rate limit in requests per second (default: 10.0)
+    /// @param burst_size Maximum burst capacity (default: 20)
+    /// @return Reference to this builder
+    Builder& rate_limiting(bool enabled, double requests_per_sec = 10.0, size_t burst_size = 20);
     
     // Legacy methods (deprecated, for backward compatibility)
     [[deprecated("Use backoff() instead")]]

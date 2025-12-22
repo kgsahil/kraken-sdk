@@ -6,6 +6,8 @@
 
 #include <stdexcept>
 #include <cstring>
+#include <algorithm>
+#include <cctype>
 
 namespace kraken {
 
@@ -145,10 +147,26 @@ Message parse_message(const std::string& raw_json) {
                 msg.data = (method == "subscribe") ? 
                     MessageData{SubscribedMsg{}} : MessageData{UnsubscribedMsg{}};
             } else {
+                // Check if error is rate limit related
+                std::string error_msg = get_string(doc, "error", "Subscription failed");
+                ErrorCode error_code = ErrorCode::InvalidSymbol;
+                
+                // Detect rate limit errors (case-insensitive)
+                std::string error_lower = error_msg;
+                std::transform(error_lower.begin(), error_lower.end(), error_lower.begin(),
+                              [](unsigned char c) { return std::tolower(c); });
+                
+                if (error_lower.find("rate limit") != std::string::npos ||
+                    error_lower.find("ratelimit") != std::string::npos ||
+                    error_lower.find("too many") != std::string::npos ||
+                    error_lower.find("429") != std::string::npos) {
+                    error_code = ErrorCode::RateLimited;
+                }
+                
                 msg.type = MessageType::Error;
                 msg.data = Error{
-                    ErrorCode::InvalidSymbol,
-                    get_string(doc, "error", "Subscription failed"),
+                    error_code,
+                    error_msg,
                     raw_json
                 };
             }

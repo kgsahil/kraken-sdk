@@ -142,6 +142,14 @@ ClientConfig config_from_env() {
     
     builder.security(security);
     
+    // Rate limiting configuration (non-essential - disabled by default)
+    bool enable_rate_limiting = get_env_bool("RATE_LIMIT_ENABLED", false);
+    if (enable_rate_limiting) {
+        double requests_per_sec = get_env_double("RATE_LIMIT_REQUESTS_PER_SEC", 10.0);
+        size_t burst_size = get_env_size_t("RATE_LIMIT_BURST_SIZE", 20);
+        builder.rate_limiting(true, requests_per_sec, burst_size);
+    }
+    
     // Initialize logger from environment variables
     std::string log_level = get_env("LOG_LEVEL", "info");
     bool log_console = get_env_bool("LOG_CONSOLE", true);

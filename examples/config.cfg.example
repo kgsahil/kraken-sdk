@@ -43,6 +43,11 @@ VALIDATE_CHECKSUMS=true
 ENABLE_GAP_DETECTION=true
 GAP_TOLERANCE=5
 
+# Rate Limiting (optional - prevents API rate limit errors)
+# RATE_LIMIT_ENABLED=true
+# RATE_LIMIT_REQUESTS_PER_SEC=10.0
+# RATE_LIMIT_BURST_SIZE=20
+
 # Telemetry (optional)
 # ENABLE_TELEMETRY=true
 # TELEMETRY_SERVICE_NAME=my-service

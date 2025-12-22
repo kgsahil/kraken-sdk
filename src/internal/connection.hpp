@@ -9,6 +9,7 @@
 #pragma once
 
 #include "kraken/connection_config.hpp"
+#include "kraken/rate_limiter.hpp"
 
 #include <boost/beast/core.hpp>
 #include <boost/beast/ssl.hpp>
@@ -42,9 +43,11 @@ public:
     /// @param url WebSocket URL (e.g., "wss://ws.kraken.com/v2")
     /// @param timeouts Connection timeout settings
     /// @param security TLS/SSL security settings
+    /// @param rate_limiter Rate limiter for outbound messages (may be null)
     explicit Connection(const std::string& url, 
                        const ConnectionTimeouts& timeouts = {},
-                       const SecurityConfig& security = {});
+                       const SecurityConfig& security = {},
+                       std::shared_ptr<RateLimiter> rate_limiter = nullptr);
     
     /// @brief Destructor - closes connection if still open
     ~Connection();
@@ -95,6 +98,7 @@ private:
     
     ConnectionTimeouts timeouts_;
     SecurityConfig security_;
+    std::shared_ptr<RateLimiter> rate_limiter_;
     
     net::io_context ioc_;
     ssl::context ssl_ctx_{ssl::context::tlsv12_client};

@@ -283,7 +283,8 @@ void KrakenClient::Impl::connect() {
         connection_ = std::make_unique<Connection>(
             config_.url(),
             config_.connection_timeouts(),
-            config_.security_config()
+            config_.security_config(),
+            config_.rate_limiter()
         );
         connection_->connect();
         set_connection_state(ConnectionState::Connected);
@@ -826,7 +827,8 @@ void KrakenClient::Impl::handle_reconnect() {
             connection_ = std::make_unique<Connection>(
                 config_.url(),
                 config_.connection_timeouts(),
-                config_.security_config()
+                config_.security_config(),
+                config_.rate_limiter()
             );
             connection_->connect();
             set_connection_state(ConnectionState::Connected);

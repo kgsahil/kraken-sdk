@@ -168,6 +168,31 @@ export SPSC_QUEUE_SIZE="131072"
 
 ---
 
+### Rate Limiting
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `RATE_LIMIT_ENABLED` | Enable/disable rate limiting | `false` | `RATE_LIMIT_ENABLED="true"` |
+| `RATE_LIMIT_REQUESTS_PER_SEC` | Rate limit in requests per second | `10.0` | `RATE_LIMIT_REQUESTS_PER_SEC="20.0"` |
+| `RATE_LIMIT_BURST_SIZE` | Maximum burst capacity (tokens) | `20` | `RATE_LIMIT_BURST_SIZE="50"` |
+
+**Rate Limiting Notes:**
+- When enabled, the SDK automatically throttles outbound WebSocket messages (subscribe, unsubscribe, ping, etc.)
+- Uses token bucket algorithm: tokens refill at `RATE_LIMIT_REQUESTS_PER_SEC` rate, with max burst of `RATE_LIMIT_BURST_SIZE`
+- Prevents API rate limit errors from Kraken by staying within limits
+- Recommended for production use to avoid connection bans
+- When disabled (default), no throttling is applied
+
+**Example Configuration:**
+```bash
+# Enable rate limiting: 10 requests/sec, burst of 20
+export RATE_LIMIT_ENABLED="true"
+export RATE_LIMIT_REQUESTS_PER_SEC="10.0"
+export RATE_LIMIT_BURST_SIZE="20"
+```
+
+---
+
 ## Examples
 
 ### Example 1: Public Mode (No Authentication)
@@ -249,7 +274,16 @@ export WS_PONG_TIMEOUT_SEC="5"
 ./quickstart
 ```
 
-### Example 10: Security Configuration
+### Example 10: Enable Rate Limiting
+
+```bash
+export RATE_LIMIT_ENABLED="true"
+export RATE_LIMIT_REQUESTS_PER_SEC="10.0"
+export RATE_LIMIT_BURST_SIZE="20"
+./quickstart
+```
+
+### Example 11: Security Configuration
 
 ```bash
 # Custom CA certificate (for corporate proxies)
@@ -265,7 +299,7 @@ export TLS_CIPHER_SUITES="ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-GCM-SHA25
 ./quickstart
 ```
 
-### Example 11: Complete Enterprise Configuration
+### Example 12: Complete Enterprise Configuration
 
 ```bash
 # Essential: WebSocket URL

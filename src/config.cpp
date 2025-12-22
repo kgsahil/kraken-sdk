@@ -76,6 +76,15 @@ ClientConfig::Builder& ClientConfig::Builder::security(SecurityConfig security) 
     return *this;
 }
 
+ClientConfig::Builder& ClientConfig::Builder::rate_limiting(bool enabled, double requests_per_sec, size_t burst_size) {
+    if (enabled) {
+        config_.rate_limiter_ = std::make_shared<RateLimiter>(requests_per_sec, burst_size, true);
+    } else {
+        config_.rate_limiter_.reset();
+    }
+    return *this;
+}
+
 ClientConfig::Builder& ClientConfig::Builder::use_queue(bool enable) {
     config_.use_queue_ = enable;
     return *this;
