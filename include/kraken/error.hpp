@@ -20,9 +20,9 @@ namespace kraken {
 /// 
 /// Contains error code, message, and optional details for debugging.
 struct Error {
-    ErrorCode code = ErrorCode::None;  ///< Error code category
-    std::string message;                ///< Human-readable error message
-    std::string details;                ///< Additional error details (optional)
+    ErrorCode code = ErrorCode::None;  ///< Error code category  // NOLINT(misc-non-private-member-variables-in-classes)
+    std::string message;                ///< Human-readable error message  // NOLINT(misc-non-private-member-variables-in-classes)
+    std::string details;                ///< Additional error details (optional)  // NOLINT(misc-non-private-member-variables-in-classes)
     
     /// @brief Check if this represents an error
     /// @return true if code is not ErrorCode::None

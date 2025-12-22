@@ -95,7 +95,7 @@ auto config_from_env() -> ClientConfig;
 /// Helper to get environment variable with default
 inline std::string get_env(const char* name, const std::string& default_value = "") {
     const char* value = std::getenv(name);
-    return value ? std::string(value) : default_value;
+    return (value != nullptr) ? std::string(value) : default_value;
 }
 
 /// Helper to parse boolean from environment variable
@@ -106,7 +106,7 @@ inline bool get_env_bool(const char* name, bool default_value = false) {
     // Convert to lowercase for comparison
     for (char& c : str) {
         if (c >= 'A' && c <= 'Z') {
-            c = c - 'A' + 'a';
+            c = static_cast<char>(static_cast<unsigned char>(c - 'A' + 'a'));
         }
     }
     return str == "true" || str == "1" || str == "yes" || str == "on";
