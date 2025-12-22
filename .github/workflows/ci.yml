@@ -261,6 +261,9 @@ jobs:
         # Make script executable and use the check script which only checks modified/new files in CI
         chmod +x ../scripts/check_clang_tidy.sh
         export CI=true
+        export GITHUB_ACTIONS=true
+        # Fetch more history for git diff to work
+        git fetch --depth=10 origin HEAD 2>/dev/null || true
         bash ../scripts/check_clang_tidy.sh 2>&1 | tee clang-tidy-output.txt || true
         # Count actual errors (lines with "error:")
         ERROR_COUNT=$(grep -c "error:" clang-tidy-output.txt || echo "0")

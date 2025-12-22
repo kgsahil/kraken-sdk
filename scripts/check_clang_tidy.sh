@@ -50,13 +50,31 @@ cd "$BUILD_DIR"
 if [ -n "$CI" ] || [ -n "$GITHUB_ACTIONS" ]; then
     # In CI/CD: check files changed in the PR/commit
     echo "📋 CI mode: Checking files changed in this PR/commit..."
+    CHANGED_FILES=""
+    
     if [ -n "$GITHUB_BASE_REF" ]; then
-        # Pull request
-        CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR origin/$GITHUB_BASE_REF...HEAD | grep -E '\.(cpp|hpp)$' || true)
+        # Pull request - compare against base branch
+        echo "Comparing against base branch: $GITHUB_BASE_REF"
+        CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR origin/$GITHUB_BASE_REF...HEAD 2>/dev/null | grep -E '\.(cpp|hpp)$' || true)
+    elif [ -n "$GITHUB_SHA" ]; then
+        # Push to branch - try to get parent commit
+        # First, fetch to ensure we have history
+        git fetch --depth=2 origin HEAD 2>/dev/null || true
+        # Try to compare with previous commit
+        if git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            echo "Comparing against previous commit"
+            CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1 HEAD 2>/dev/null | grep -E '\.(cpp|hpp)$' || true)
+        else
+            # No previous commit - check all files in this commit
+            echo "No previous commit found, checking all files in current commit"
+            CHANGED_FILES=$(git diff-tree --no-commit-id --name-only --diff-filter=ACMR -r HEAD 2>/dev/null | grep -E '\.(cpp|hpp)$' || true)
+        fi
     else
-        # Push to branch
-        CHANGED_FILES=$(git diff --name-only --diff-filter=ACMR HEAD~1 HEAD | grep -E '\.(cpp|hpp)$' || true)
+        # Fallback: check all source files
+        echo "⚠️  Could not determine changed files, checking all source files"
+        CHANGED_FILES=""
     fi
+    
     if [ -z "$CHANGED_FILES" ]; then
         echo "ℹ️  No C++ files changed in this PR/commit. Skipping clang-tidy."
         exit 0
@@ -113,8 +131,14 @@ for file in $SOURCES; do
     echo "Checking: $file"
     OUTPUT=$(clang-tidy "$file_path" -p . --config-file=../.clang-tidy --extra-arg=-std=c++17 2>&1 || true)
     
-    ERRORS=$(echo "$OUTPUT" | grep -c "error:" || echo "0")
-    WARNINGS=$(echo "$OUTPUT" | grep -c "warning:" || echo "0")
+    ERRORS=$(echo "$OUTPUT" | grep -c "error:" 2>/dev/null || echo "0")
+    WARNINGS=$(echo "$OUTPUT" | grep -c "warning:" 2>/dev/null || echo "0")
+    
+    # Convert to integers (handle empty strings and newlines)
+    ERRORS=$(echo "$ERRORS" | tr -d '\n' | grep -o '[0-9]*' || echo "0")
+    WARNINGS=$(echo "$WARNINGS" | tr -d '\n' | grep -o '[0-9]*' || echo "0")
+    ERRORS=${ERRORS:-0}
+    WARNINGS=${WARNINGS:-0}
     
     if [ "$ERRORS" -gt 0 ] || [ "$WARNINGS" -gt 0 ]; then
         echo "$OUTPUT" | head -20
