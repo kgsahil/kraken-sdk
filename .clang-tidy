@@ -4,5 +4,4 @@ Checks: '*, -clang-diagnostic-c++14-attribute-extensions, -clang-analyzer-cplusp
 WarningsAsErrors: '*'
 HeaderFilterRegex: '^(include|src)/.*'
 SystemHeaders: false
-User: *
 
