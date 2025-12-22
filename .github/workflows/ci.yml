@@ -63,11 +63,19 @@ jobs:
       shell: powershell
       run: |
         $vcpkgDir = "$env:ProgramFiles\vcpkg"
-        if (-not (Test-Path $vcpkgDir)) {
+        if (-not (Test-Path "$vcpkgDir\vcpkg.exe")) {
+          Write-Host "Installing vcpkg..."
+          New-Item -ItemType Directory -Force -Path $vcpkgDir | Out-Null
           git clone https://github.com/Microsoft/vcpkg.git $vcpkgDir
-          & "$vcpkgDir\bootstrap-vcpkg.bat"
+          Push-Location $vcpkgDir
+          & .\bootstrap-vcpkg.bat
+          Pop-Location
+        } else {
+          Write-Host "vcpkg already installed"
         }
+        $env:VCPKG_ROOT = $vcpkgDir
         echo "VCPKG_ROOT=$vcpkgDir" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        Write-Host "VCPKG_ROOT set to: $vcpkgDir"
     
     - name: Install dependencies via vcpkg
       shell: powershell
