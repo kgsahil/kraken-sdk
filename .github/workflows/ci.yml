@@ -199,11 +199,10 @@ jobs:
         echo "**Total Test Suites:** 24" >> $GITHUB_STEP_SUMMARY
         echo "**Total Test Cases:** 240+" >> $GITHUB_STEP_SUMMARY
 
-  # Code Quality Checks (only on PRs)
+  # Code Quality Checks
   lint:
     name: Code Quality
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     
     steps:
     - name: Checkout code

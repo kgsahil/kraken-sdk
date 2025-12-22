@@ -29,6 +29,11 @@ if(DEFINED ENV{BOOST_ROOT})
     set(Boost_NO_BOOST_CMAKE ON)  # Disable BoostConfig.cmake
 endif()
 
+# Set Boost options before find_package
+set(Boost_USE_STATIC_LIBS OFF)
+set(Boost_USE_MULTITHREADED ON)
+set(Boost_USE_STATIC_RUNTIME OFF)
+
 find_package(Boost 1.70 REQUIRED COMPONENTS system)
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
