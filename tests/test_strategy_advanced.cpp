@@ -236,15 +236,26 @@ protected:
 TEST_F(StrategyPresetsTest, BreakoutPreset) {
     auto breakout = StrategyPresets::breakout("BTC/USD", 50000.0, 2.0);
     
-    // Build volume history
-    for (int i = 0; i < 20; ++i) {
+    // Build volume history (need at least lookback/2 = 10 samples for VolumeSpike)
+    // Build more than lookback to ensure we have a stable baseline of 100.0
+    for (int i = 0; i < 25; ++i) {
         breakout->check(make_ticker("BTC/USD", 49000.0, 100.0));
     }
     
     // Price above but volume not spiked - should not trigger
+    // Volume 150.0 is not 2x the average of 100.0
     EXPECT_FALSE(breakout->check(make_ticker("BTC/USD", 51000.0, 150.0)));
     
     // Both price and volume conditions met - should trigger
+    // Need to rebuild baseline to push out the 150.0 from history
+    // Add enough normal samples (100.0) to completely replace history
+    // Since lookback=20, we need 20+ samples to fully replace history
+    for (int i = 0; i < 25; ++i) {
+        breakout->check(make_ticker("BTC/USD", 50000.0, 100.0));
+    }
+    
+    // Now check with high volume - should trigger
+    // Average should be ~100.0, threshold = 200.0, 250.0 > 200.0 = true
     EXPECT_TRUE(breakout->check(make_ticker("BTC/USD", 51000.0, 250.0)));
 }
 
@@ -415,12 +426,20 @@ TEST_F(StrategyIntegrationTest, CompositeWithPresets) {
     // OR: Either breakout OR support level
     auto either = CompositeStrategy::or_(breakout, support);
     
-    // Build volume history for breakout
-    for (int i = 0; i < 20; ++i) {
+    // Build volume history for breakout (need at least lookback/2 = 10 samples)
+    // Build more than lookback to ensure stable baseline
+    for (int i = 0; i < 25; ++i) {
         either->check(make_ticker("BTC/USD", 49000.0, 100.0));
     }
     
+    // Add enough normal samples to ensure clean baseline (fully replace history)
+    // Since lookback=20, we need 20+ samples to fully replace history
+    for (int i = 0; i < 25; ++i) {
+        either->check(make_ticker("BTC/USD", 50000.0, 100.0));
+    }
+    
     // Breakout condition met - should trigger
+    // Price 51000 > 50000 threshold AND volume 250.0 > 2x average of 100.0
     EXPECT_TRUE(either->check(make_ticker("BTC/USD", 51000.0, 250.0)));
 }
 
