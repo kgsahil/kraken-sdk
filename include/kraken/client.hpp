@@ -11,7 +11,7 @@
 #include "config.hpp"
 #include "metrics.hpp"
 #include "subscription.hpp"
-#include "strategies.hpp"
+#include "strategies/base.hpp"
 
 #include <memory>
 #include <future>

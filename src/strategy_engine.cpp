@@ -1,4 +1,4 @@
-#include "kraken/strategies.hpp"
+#include "kraken/strategies/strategies.hpp"
 
 // Strategy implementations are header-only (strategies.hpp)
 // This file exists for future extensions and to satisfy CMake

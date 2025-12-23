@@ -15,7 +15,7 @@
 #include "connection_config.hpp"
 #include "metrics.hpp"
 #include "subscription.hpp"
-#include "strategies.hpp"
+#include "strategies/strategies.hpp"
 #include "client.hpp"
 #include "logger.hpp"
 

@@ -104,7 +104,19 @@ add_library(kraken STATIC
     src/logger.cpp
     src/auth.cpp
     src/rate_limiter.cpp
-    src/strategy_config.cpp
+    src/strategies/strategy_config.cpp
+    src/client/subscription_impl.cpp
+    src/client/strategy_engine_impl.cpp
+    src/client/lifecycle.cpp
+    src/client/callbacks.cpp
+    src/client/subscriptions.cpp
+    src/client/strategies.cpp
+    src/client/dispatch.cpp
+    src/client/reconnect.cpp
+    src/client/snapshots.cpp
+    src/client/metrics.cpp
+    src/client/subscription_impl.cpp
+    src/client/strategy_engine_impl.cpp
 )
 
 target_include_directories(kraken

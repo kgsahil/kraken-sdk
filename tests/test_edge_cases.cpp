@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 #include <kraken/kraken.hpp>
-#include <kraken/strategies.hpp>
+#include <kraken/strategies/strategies.hpp>
 #include "../src/internal/book_engine.hpp"
 #include <limits>
 #include <cmath>

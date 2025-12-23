@@ -1,7 +1,7 @@
 /// @file strategy_config.cpp
 /// @brief Implementation of strategy configuration utilities
 
-#include "kraken/strategy_config.hpp"
+#include "kraken/strategies/strategy_config.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>

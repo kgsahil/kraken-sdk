@@ -14,7 +14,7 @@
 #include "kraken/error.hpp"
 #include "kraken/config.hpp"
 #include "kraken/metrics.hpp"
-#include "kraken/strategies.hpp"
+#include "kraken/strategies/base.hpp"
 #include "kraken/telemetry.hpp"
 
 #include "kraken/queue.hpp"

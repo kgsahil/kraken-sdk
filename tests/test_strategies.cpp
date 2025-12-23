@@ -2,7 +2,7 @@
 /// @brief Unit tests for trading strategies
 
 #include <gtest/gtest.h>
-#include <kraken/strategies.hpp>
+#include <kraken/strategies/strategies.hpp>
 #include <thread>
 #include <chrono>
 

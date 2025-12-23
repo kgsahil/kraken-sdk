@@ -9,8 +9,8 @@
 /// - Configuration from maps/env vars
 
 #include <gtest/gtest.h>
-#include <kraken/strategies.hpp>
-#include <kraken/strategy_config.hpp>
+#include <kraken/strategies/strategies.hpp>
+#include <kraken/strategies/strategy_config.hpp>
 #include <thread>
 #include <chrono>
 #include <map>
