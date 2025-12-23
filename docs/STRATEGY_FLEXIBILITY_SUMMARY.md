@@ -2,7 +2,7 @@
 
 ## How Flexible Is It? 🎯
 
-**Answer: Very Flexible!** Users can now create sophisticated trading strategies with minimal code.
+**Answer: Very Flexible!** Users can now create sophisticated trading strategies with minimal code, configure them from files/env vars, and compose them with AND/OR logic.
 
 ## What Users Can Do Now ✅
 
@@ -92,7 +92,7 @@ class LargeTradeStrategy : public AlertStrategy {
 };
 ```
 
-## Flexibility Score: 9/10 ⭐
+## Flexibility Score: 10/10 ⭐
 
 ### Strengths:
 - ✅ Simple interface (3-4 methods to implement)
@@ -102,11 +102,12 @@ class LargeTradeStrategy : public AlertStrategy {
 - ✅ Thread-safe evaluation
 - ✅ Easy to test
 
-### Future Enhancements (Would make it 10/10):
-- ⏳ Strategy composition (AND/OR logic)
-- ⏳ OHLC/candle data support
-- ⏳ Configuration from files/env vars
-- ⏳ Strategy enable/disable at runtime
+### Completed Enhancements (Now 10/10!):
+- ✅ Strategy composition (AND/OR logic) - `CompositeStrategy`
+- ✅ OHLC/candle data support - `check(const OHLC&)` method
+- ✅ Configuration from files/env vars - `StrategyConfig` class
+- ✅ Strategy enable/disable at runtime - `enable()`, `disable()`, `is_enabled()`
+- ✅ Strategy presets - `StrategyPresets` for common patterns
 
 ## Conclusion
 

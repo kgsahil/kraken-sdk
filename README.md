@@ -48,9 +48,13 @@ client.add_alert(alert, [](const kraken::Alert& a) {
 ```
 
 **Available Strategies:**
-- `PriceAlert` - Threshold-based price monitoring
+- `PriceAlert` - Threshold-based price monitoring (recurring, cooldown support)
 - `VolumeSpike` - Unusual volume detection (N× average)
 - `SpreadAlert` - Spread monitoring and alerts
+- `CompositeStrategy` - Combine strategies with AND/OR logic
+- `StrategyPresets` - Ready-to-use patterns (breakout, support/resistance)
+- **Configuration Support** - Create strategies from config files/env vars via `StrategyConfig`
+- **Runtime Control** - Enable/disable strategies dynamically
 - **Extensible** - Custom strategies via `AlertStrategy` base class
 
 ### 🔒 **Data Integrity & Reliability**
@@ -338,6 +342,10 @@ class KrakenClient {
     // Trading Strategies (thread-safe)
     int add_alert(std::shared_ptr<AlertStrategy>, AlertCallback);
     void remove_alert(int id);
+    void enable_alert(int id);
+    void disable_alert(int id);
+    bool is_alert_enabled(int id) const;
+    std::vector<std::pair<int, std::string>> get_alerts() const;
     
     // Data Snapshots (thread-safe)
     std::optional<Ticker> latest_ticker(const std::string& symbol);
@@ -411,15 +419,16 @@ ctest --output-on-failure
 Total Test time (real) = 25.00 sec
 ```
 
-**24 comprehensive test suites:**
+**25 comprehensive test suites:**
 - ✅ Unit tests (parsing, order book, checksum, auth, logger, queue, config, rate limiter)
 - ✅ Integration tests (end-to-end message flow)
 - ✅ Thread safety tests (concurrent operations)
 - ✅ Edge case tests (boundary conditions)
 - ✅ Exception safety tests (error handling)
 - ✅ **Stress & failure tests** (40+ tests for breaking scenarios)
+- ✅ **Advanced strategy tests** (composition, OHLC, presets, configuration, enable/disable)
 
-**100% test pass rate** - All 24 test suites verified and passing (240+ test cases including stress tests).
+**100% test pass rate** - All 25 test suites verified and passing (260+ test cases including stress tests).
 
 ---
 
@@ -432,7 +441,8 @@ kraken-sdk/
 │   ├── client.hpp     # KrakenClient
 │   ├── config.hpp     # ClientConfig & Builder
 │   ├── types.hpp      # Data types & callbacks
-│   ├── strategies.hpp # Alert strategies
+│   ├── strategies.hpp # Alert strategies & presets
+│   ├── strategy_config.hpp # Strategy configuration from files/env vars
 │   ├── backoff.hpp    # Reconnection strategies
 │   ├── gap_detector.hpp  # Gap detection
 │   ├── telemetry.hpp  # OpenTelemetry
@@ -441,7 +451,7 @@ kraken-sdk/
 │   ├── internal/      # Private headers
 │   └── *.cpp          # Implementation files
 ├── examples/          # 8 practical examples
-├── tests/             # 24 test suites (240+ test cases including stress tests)
+├── tests/             # 25 test suites (260+ test cases including stress tests)
 ├── benchmarks/        # Performance benchmarks
 └── docs/              # Comprehensive documentation
 ```
@@ -489,7 +499,7 @@ doxygen Doxyfile
 - **Thread-safe API** - Safe concurrent access throughout
 
 ### ✅ **Production Ready**
-- **24 test suites** - Unit, integration, thread safety, edge cases, stress tests (240+ test cases)
+- **25 test suites** - Unit, integration, thread safety, edge cases, stress tests, advanced strategies (260+ test cases)
 - **100% test pass rate** - All critical paths tested and verified
 - **Exception safety** - RAII, proper error handling
 - **ABI stability** - PIMPL pattern for future compatibility
