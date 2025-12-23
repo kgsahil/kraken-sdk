@@ -31,144 +31,22 @@ endif()
 # If BOOST_ROOT is set, use it; otherwise let CMake search
 if(DEFINED ENV{BOOST_ROOT})
     set(BOOST_ROOT $ENV{BOOST_ROOT})
-    set(Boost_NO_BOOST_CMAKE ON)  # Disable BoostConfig.cmake
+endif()
+
+# Hint Homebrew/Intel default prefixes on macOS
+if(APPLE)
+    list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew" "/usr/local")
 endif()
 
 # Set Boost options before find_package
+set(Boost_NO_BOOST_CMAKE OFF)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
-# On macOS with Homebrew, Boost libraries might have different naming
-# Try to find Boost, and if system component fails, manually specify it
-find_package(Boost 1.70 QUIET COMPONENTS system)
-
-if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
-    # Boost not found or system component missing - try manual specification
-    message(STATUS "Boost system component not found automatically, trying manual specification...")
-    
-    # Try to find boost_system library manually
-    if(APPLE)
-        # On macOS, Homebrew installs Boost in /opt/homebrew/opt/boost (Apple Silicon) or /usr/local/opt/boost (Intel)
-        # First, determine BOOST_ROOT if not set
-        if(NOT BOOST_ROOT)
-            if(EXISTS "/opt/homebrew/opt/boost")
-                set(BOOST_ROOT "/opt/homebrew/opt/boost")
-            elseif(EXISTS "/usr/local/opt/boost")
-                set(BOOST_ROOT "/usr/local/opt/boost")
-            elseif(DEFINED ENV{BOOST_ROOT})
-                set(BOOST_ROOT $ENV{BOOST_ROOT})
-            endif()
-        endif()
-        
-        if(BOOST_ROOT)
-            message(STATUS "Searching for Boost in: ${BOOST_ROOT}")
-            
-            # First, list what's actually in the lib directory for diagnostics
-            file(GLOB BOOST_LIBS "${BOOST_ROOT}/lib/*boost*")
-            if(BOOST_LIBS)
-                message(STATUS "Found Boost libraries in ${BOOST_ROOT}/lib:")
-                foreach(lib ${BOOST_LIBS})
-                    get_filename_component(libname ${lib} NAME)
-                    message(STATUS "  - ${libname}")
-                endforeach()
-            else()
-                message(WARNING "No Boost libraries found in ${BOOST_ROOT}/lib")
-            endif()
-            
-            # Try to find boost_system library with various naming patterns
-            # Homebrew Boost may use different names (libboost_system-mt.dylib, versioned suffixes, etc.)
-            find_library(BOOST_SYSTEM_LIB
-                NAMES 
-                    boost_system
-                    boost_system-mt
-                    libboost_system
-                    libboost_system-mt
-                PATHS
-                    ${BOOST_ROOT}/lib
-                    /opt/homebrew/opt/boost/lib
-                    /usr/local/opt/boost/lib
-                NO_DEFAULT_PATH
-            )
-            
-            # If not found, try without NO_DEFAULT_PATH as fallback
-            if(NOT BOOST_SYSTEM_LIB)
-                find_library(BOOST_SYSTEM_LIB
-                    NAMES 
-                        boost_system
-                        boost_system-mt
-                        libboost_system
-                        libboost_system-mt
-                    PATHS
-                        ${BOOST_ROOT}/lib
-                        /opt/homebrew/opt/boost/lib
-                        /usr/local/opt/boost/lib
-                )
-            endif()
-            
-            # If still not found, try explicit glob patterns including versioned names and common system paths
-            if(NOT BOOST_SYSTEM_LIB)
-                file(GLOB BOOST_SYSTEM_CANDIDATES
-                    "${BOOST_ROOT}/lib/libboost_system*.dylib"
-                    "${BOOST_ROOT}/lib/libboost_system*.a"
-                    "${BOOST_ROOT}/lib/*boost_system*.dylib"
-                    "${BOOST_ROOT}/lib/*boost_system*.a"
-                    "/opt/homebrew/lib/libboost_system*.dylib"
-                    "/opt/homebrew/lib/libboost_system*.a"
-                    "/usr/local/lib/libboost_system*.dylib"
-                    "/usr/local/lib/libboost_system*.a"
-                )
-                if(BOOST_SYSTEM_CANDIDATES)
-                    list(GET BOOST_SYSTEM_CANDIDATES 0 BOOST_SYSTEM_LIB)
-                    message(STATUS "Found boost_system by glob: ${BOOST_SYSTEM_LIB}")
-                endif()
-            endif()
-            
-            # Final fallback: allow default search paths without PATHS/NO_DEFAULT_PATH
-            if(NOT BOOST_SYSTEM_LIB)
-                find_library(BOOST_SYSTEM_LIB
-                    NAMES 
-                        boost_system
-                        boost_system-mt
-                        libboost_system
-                        libboost_system-mt
-                )
-                if(BOOST_SYSTEM_LIB)
-                    message(STATUS "Found boost_system via default search: ${BOOST_SYSTEM_LIB}")
-                endif()
-            endif()
-        endif()
-        
-        if(BOOST_SYSTEM_LIB)
-            message(STATUS "Found boost_system manually: ${BOOST_SYSTEM_LIB}")
-            # Get Boost include directory
-            if(NOT BOOST_ROOT)
-                get_filename_component(BOOST_ROOT "${BOOST_SYSTEM_LIB}/.." ABSOLUTE)
-                get_filename_component(BOOST_ROOT "${BOOST_ROOT}/.." ABSOLUTE)
-            endif()
-            # Create imported target
-            add_library(Boost::system SHARED IMPORTED)
-            set_target_properties(Boost::system PROPERTIES
-                IMPORTED_LOCATION "${BOOST_SYSTEM_LIB}"
-                INTERFACE_INCLUDE_DIRECTORIES "${BOOST_ROOT}/include"
-            )
-            set(Boost_FOUND TRUE)
-            set(Boost_system_FOUND TRUE)
-            set(Boost_VERSION "1.90.0")
-            message(STATUS "Boost system library: ${BOOST_SYSTEM_LIB}")
-            message(STATUS "Boost include directory: ${BOOST_ROOT}/include")
-        else()
-            message(FATAL_ERROR "Could not find Boost system library in ${BOOST_ROOT}/lib. "
-                    "Please install Boost with: brew install boost")
-        endif()
-    else()
-        # On other platforms, try standard find_package again
-        find_package(Boost 1.70 REQUIRED COMPONENTS system)
-    endif()
-else()
-    message(STATUS "Boost found: ${Boost_VERSION}")
-    message(STATUS "Boost system library: ${Boost_system_LIBRARY}")
-endif()
+find_package(Boost 1.70 REQUIRED COMPONENTS system)
+message(STATUS "Boost found: ${Boost_VERSION}")
+message(STATUS "Boost system library: ${Boost_system_LIBRARY}")
 find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
 

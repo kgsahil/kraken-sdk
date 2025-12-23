@@ -157,8 +157,6 @@ jobs:
         echo "Boost location: $BOOST_PREFIX"
         echo "Listing boost libs (first 10):"
         ls -1 "$BOOST_PREFIX/lib/" | head -10
-        echo "Looking for boost_system:"
-        find "$BOOST_PREFIX/lib" -maxdepth 1 -name "*boost_system*" -type f || true
     
     - name: Configure CMake
       run: |
@@ -171,51 +169,7 @@ jobs:
         export BOOST_LIBRARYDIR="$BOOST_ROOT/lib"
         export OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
         export CMAKE_PREFIX_PATH="$BOOST_ROOT:$OPENSSL_ROOT_DIR:$CMAKE_PREFIX_PATH"
-        # Verify Boost installation and show actual library names
         echo "Boost root: $BOOST_ROOT"
-        echo ""
-        echo "=== All files in Boost lib directory ==="
-        ls -la "$BOOST_ROOT/lib/" || echo "Cannot list lib directory"
-        echo ""
-        echo "=== All Boost libraries ==="
-        ls -1 "$BOOST_ROOT/lib/" | grep -i boost || echo "No boost libs found"
-        echo ""
-        echo "=== Looking for boost_system specifically ==="
-        find "$BOOST_ROOT/lib" -name "*boost_system*" -type f || echo "No boost_system found"
-        echo ""
-        echo "=== Library file details ==="
-        if [ -f "$BOOST_ROOT/lib/libboost_system.dylib" ]; then
-          echo "✅ Found: libboost_system.dylib"
-          file "$BOOST_ROOT/lib/libboost_system.dylib"
-        elif [ -f "$BOOST_ROOT/lib/libboost_system.a" ]; then
-          echo "✅ Found: libboost_system.a"
-          file "$BOOST_ROOT/lib/libboost_system.a"
-        elif [ -f "$BOOST_ROOT/lib/libboost_system-mt.dylib" ]; then
-          echo "✅ Found: libboost_system-mt.dylib"
-          file "$BOOST_ROOT/lib/libboost_system-mt.dylib"
-        elif [ -f "$BOOST_ROOT/lib/libboost_system-mt.a" ]; then
-          echo "✅ Found: libboost_system-mt.a"
-          file "$BOOST_ROOT/lib/libboost_system-mt.a"
-        else
-          echo "❌ No boost_system library found with standard names"
-          echo "Available boost libraries (first 20):"
-          ls -1 "$BOOST_ROOT/lib/" | grep boost | head -20
-          echo ""
-          echo "Trying to find any file containing 'system':"
-          ls -1 "$BOOST_ROOT/lib/" | grep -i system | head -10
-        fi
-        # Force CMake to use FindBoost by disabling BoostConfig.cmake
-        # Also set Boost_USE_STATIC_LIBS=OFF to use dynamic libraries
-        # Use CMAKE_PREFIX_PATH to help FindBoost locate Boost
-        export CMAKE_PREFIX_PATH="$BOOST_ROOT:$OPENSSL_ROOT_DIR:$CMAKE_PREFIX_PATH"
-        # Try to find the actual boost_system library name
-        BOOST_SYSTEM_LIB=$(find "$BOOST_ROOT/lib" -name "*boost_system*" -type f | head -1 | xargs basename 2>/dev/null || echo "")
-        if [ -n "$BOOST_SYSTEM_LIB" ]; then
-          echo "Found boost_system library: $BOOST_SYSTEM_LIB"
-          # Extract library name without extension and path
-          BOOST_SYSTEM_NAME=$(echo "$BOOST_SYSTEM_LIB" | sed 's/^lib//' | sed 's/\.dylib$//' | sed 's/\.a$//')
-          echo "Using library name: $BOOST_SYSTEM_NAME"
-        fi
         cmake .. \
           -DCMAKE_BUILD_TYPE=Release \
           -DKRAKEN_BUILD_TESTS=ON \
@@ -224,10 +178,8 @@ jobs:
           -DBOOST_ROOT="$BOOST_ROOT" \
           -DBOOST_INCLUDEDIR="$BOOST_INCLUDEDIR" \
           -DBOOST_LIBRARYDIR="$BOOST_LIBRARYDIR" \
-          -DBoost_NO_BOOST_CMAKE=ON \
           -DBoost_USE_STATIC_LIBS=OFF \
           -DBoost_USE_MULTITHREADED=ON \
-          -DBoost_USE_STATIC_RUNTIME=OFF \
           -DBoost_DEBUG=ON \
           -DOPENSSL_ROOT_DIR="$OPENSSL_ROOT_DIR" \
           -U Boost_DIR
