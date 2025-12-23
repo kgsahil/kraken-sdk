@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 #include "../src/internal/connection.hpp"
-#include <kraken/error.hpp>
+#include <kraken/core/error.hpp>
 #include <thread>
 #include <chrono>
 

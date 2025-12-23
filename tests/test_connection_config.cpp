@@ -2,7 +2,7 @@
 /// @brief Unit tests for connection configuration (timeouts, security)
 
 #include <gtest/gtest.h>
-#include "kraken/connection_config.hpp"
+#include "kraken/connection/connection_config.hpp"
 #include <chrono>
 
 using namespace kraken;

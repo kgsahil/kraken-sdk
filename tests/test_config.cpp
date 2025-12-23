@@ -2,8 +2,8 @@
 /// @brief Unit tests for configuration builder
 
 #include <gtest/gtest.h>
-#include <kraken/config.hpp>
-#include <kraken/backoff.hpp>
+#include <kraken/core/config.hpp>
+#include <kraken/connection/backoff.hpp>
 
 using namespace kraken;
 

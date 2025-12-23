@@ -3,7 +3,7 @@
 
 #include <gtest/gtest.h>
 #include <kraken/kraken.hpp>
-#include <kraken/error.hpp>
+#include <kraken/core/error.hpp>
 #include <stdexcept>
 
 using namespace kraken;

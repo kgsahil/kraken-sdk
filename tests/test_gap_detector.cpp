@@ -2,7 +2,7 @@
 /// @brief Unit tests for message gap detection
 
 #include <gtest/gtest.h>
-#include <kraken/gap_detector.hpp>
+#include <kraken/connection/gap_detector.hpp>
 #include <vector>
 #include <atomic>
 #include <thread>

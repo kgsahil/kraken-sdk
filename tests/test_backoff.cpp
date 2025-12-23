@@ -2,7 +2,7 @@
 /// @brief Unit tests for backoff strategies
 
 #include <gtest/gtest.h>
-#include <kraken/backoff.hpp>
+#include <kraken/connection/backoff.hpp>
 #include <thread>
 #include <vector>
 #include <cmath>
