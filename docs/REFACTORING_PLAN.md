@@ -1,5 +1,39 @@
 # Code Refactoring Plan
 
+## ✅ Completed Phases
+
+### Phase 1: Strategies Module Refactoring ✅
+- Split `strategies.hpp` (912 lines) into modular structure:
+  - `strategies/base.hpp` - Base classes and Alert struct
+  - `strategies/price_alert.hpp` - PriceAlert strategy
+  - `strategies/volume_spike.hpp` - VolumeSpike strategy
+  - `strategies/spread_alert.hpp` - SpreadAlert strategy
+  - `strategies/composite.hpp` - CompositeStrategy (AND/OR logic)
+  - `strategies/presets.hpp` - StrategyPresets factory
+  - `strategies/strategy_config.hpp` - Configuration support (moved from root)
+  - `strategies/strategies.hpp` - Main include file
+
+### Phase 2: Client Implementation Refactoring ✅
+- Split `client_impl.cpp` (876 lines) into 8 focused modules:
+  - `src/client/lifecycle.cpp` - Construction, connection, event loop (~200 lines)
+  - `src/client/callbacks.cpp` - Callback registration (~70 lines)
+  - `src/client/subscriptions.cpp` - Subscription management (~110 lines)
+  - `src/client/strategies.cpp` - Strategy management (~45 lines)
+  - `src/client/dispatch.cpp` - Message dispatch and I/O loops (~270 lines)
+  - `src/client/reconnect.cpp` - Reconnection logic (~100 lines)
+  - `src/client/snapshots.cpp` - Data snapshots (~40 lines)
+  - `src/client/metrics.cpp` - Metrics collection (~45 lines)
+- Extracted `SubscriptionImpl` to `src/client/subscription_impl.cpp`
+- Extracted `StrategyEngine` to `src/client/strategy_engine_impl.cpp`
+
+**Results:**
+- `client_impl.cpp`: 876 → ~30 lines (97% reduction)
+- All 25 tests passing
+- Improved code organization and maintainability
+- Better separation of concerns
+
+---
+
 ## Current Issues
 
 ### Large Files
