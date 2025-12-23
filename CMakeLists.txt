@@ -106,17 +106,35 @@ if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
                 )
             endif()
             
-            # If still not found, try explicit glob patterns including versioned names
+            # If still not found, try explicit glob patterns including versioned names and common system paths
             if(NOT BOOST_SYSTEM_LIB)
                 file(GLOB BOOST_SYSTEM_CANDIDATES
                     "${BOOST_ROOT}/lib/libboost_system*.dylib"
                     "${BOOST_ROOT}/lib/libboost_system*.a"
                     "${BOOST_ROOT}/lib/*boost_system*.dylib"
                     "${BOOST_ROOT}/lib/*boost_system*.a"
+                    "/opt/homebrew/lib/libboost_system*.dylib"
+                    "/opt/homebrew/lib/libboost_system*.a"
+                    "/usr/local/lib/libboost_system*.dylib"
+                    "/usr/local/lib/libboost_system*.a"
                 )
                 if(BOOST_SYSTEM_CANDIDATES)
                     list(GET BOOST_SYSTEM_CANDIDATES 0 BOOST_SYSTEM_LIB)
                     message(STATUS "Found boost_system by glob: ${BOOST_SYSTEM_LIB}")
+                endif()
+            endif()
+            
+            # Final fallback: allow default search paths without PATHS/NO_DEFAULT_PATH
+            if(NOT BOOST_SYSTEM_LIB)
+                find_library(BOOST_SYSTEM_LIB
+                    NAMES 
+                        boost_system
+                        boost_system-mt
+                        libboost_system
+                        libboost_system-mt
+                )
+                if(BOOST_SYSTEM_LIB)
+                    message(STATUS "Found boost_system via default search: ${BOOST_SYSTEM_LIB}")
                 endif()
             endif()
         endif()

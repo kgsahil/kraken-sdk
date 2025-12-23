@@ -15,18 +15,6 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Cache dependencies
-      uses: actions/cache@v4
-      with:
-        path: |
-          /usr/lib/x86_64-linux-gnu/libboost*
-          /usr/lib/x86_64-linux-gnu/libssl*
-          /usr/include/boost
-          /usr/include/openssl
-        key: ${{ runner.os }}-deps-${{ hashFiles('CMakeLists.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-
     
     - name: Install dependencies
       run: |
@@ -68,6 +56,9 @@ jobs:
     runs-on: windows-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     
+    env:
+      VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}\vcpkg-bincache
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -97,6 +88,8 @@ jobs:
         path: |
           C:\Program Files\vcpkg\installed
           C:\Program Files\vcpkg\buildtrees
+          C:\Program Files\vcpkg\downloads
+          ${{ env.VCPKG_DEFAULT_BINARY_CACHE }}
         key: ${{ runner.os }}-vcpkg-packages-${{ hashFiles('CMakeLists.txt') }}
         restore-keys: |
           ${{ runner.os }}-vcpkg-packages-
@@ -118,6 +111,8 @@ jobs:
         New-Item -ItemType Directory -Force -Path build | Out-Null
         cd build
         cmake .. `
+          -G "Ninja" `
+          -DCMAKE_BUILD_TYPE=Release `
           -DKRAKEN_BUILD_TESTS=ON `
           -DKRAKEN_BUILD_EXAMPLES=ON `
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_ROOT\scripts\buildsystems\vcpkg.cmake" `
@@ -127,14 +122,14 @@ jobs:
       shell: powershell
       run: |
         cd build
-        cmake --build . --config Release --parallel
+        cmake --build . --parallel
     
     - name: Run tests (GoogleTest)
       shell: powershell
       run: |
         cd build
         Write-Host "Running all GoogleTest suites..."
-        ctest --output-on-failure --verbose -C Release --parallel
+        ctest --output-on-failure --verbose --parallel
         Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "## Test Results (Windows)"
         Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value ""
         Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Total Test Suites:** 24"
@@ -149,45 +144,17 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
-    - name: Cache Homebrew packages
-      uses: actions/cache@v4
-      with:
-        path: |
-          $(brew --cache)
-          $(brew --prefix)/opt/boost
-          $(brew --prefix)/opt/openssl@3
-        key: ${{ runner.os }}-homebrew-${{ hashFiles('CMakeLists.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-homebrew-
     
     - name: Install dependencies
       run: |
         brew update
-        # Install Boost with all components to ensure system component is available
         brew install cmake boost openssl@3 pkg-config || true
-        # Verify Boost installation and find actual library names
         BOOST_PREFIX=$(brew --prefix boost)
         echo "Boost location: $BOOST_PREFIX"
-        echo "Boost libs:"
-        ls -la "$BOOST_PREFIX/lib/" | grep -i boost || echo "Warning: Boost libraries not found"
-        echo ""
-        echo "Looking for boost_system libraries:"
-        find "$BOOST_PREFIX/lib" -name "*boost_system*" -type f || echo "No boost_system libraries found"
-        echo ""
-        echo "All boost libraries:"
-        ls -1 "$BOOST_PREFIX/lib/" | grep boost | head -20
-        echo ""
-        # Check specifically for boost_system with various naming patterns
-        if find "$BOOST_PREFIX/lib" -name "*boost_system*" -type f | grep -q .; then
-          echo "✅ Found boost_system library"
-          find "$BOOST_PREFIX/lib" -name "*boost_system*" -type f
-        else
-          echo "❌ boost_system library not found - trying to reinstall boost..."
-          brew reinstall boost || true
-          echo "After reinstall, checking again:"
-          find "$BOOST_PREFIX/lib" -name "*boost_system*" -type f || echo "Still not found"
-        fi
+        echo "Listing boost libs (first 10):"
+        ls -1 "$BOOST_PREFIX/lib/" | head -10
+        echo "Looking for boost_system:"
+        find "$BOOST_PREFIX/lib" -maxdepth 1 -name "*boost_system*" -type f || true
     
     - name: Configure CMake
       run: |
@@ -199,6 +166,7 @@ jobs:
         export BOOST_INCLUDEDIR="$BOOST_ROOT/include"
         export BOOST_LIBRARYDIR="$BOOST_ROOT/lib"
         export OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
+        export CMAKE_PREFIX_PATH="$BOOST_ROOT:$OPENSSL_ROOT_DIR:$CMAKE_PREFIX_PATH"
         # Verify Boost installation and show actual library names
         echo "Boost root: $BOOST_ROOT"
         echo ""
