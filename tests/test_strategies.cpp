@@ -3,6 +3,8 @@
 
 #include <gtest/gtest.h>
 #include <kraken/strategies.hpp>
+#include <thread>
+#include <chrono>
 
 using namespace kraken;
 
@@ -59,6 +61,69 @@ TEST_F(PriceAlertTest, ResetAllowsRetrigger) {
     alert->reset();
     
     EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 53000.0)));
+}
+
+TEST_F(PriceAlertTest, RecurringAlerts) {
+    auto alert = PriceAlert::Builder()
+        .symbol("BTC/USD")
+        .above(50000.0)
+        .recurring(true)
+        .build();
+    
+    // First trigger
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 51000.0)));
+    EXPECT_TRUE(alert->has_fired());
+    EXPECT_EQ(alert->fire_count(), 1);
+    
+    // Should trigger again (recurring)
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 52000.0)));
+    EXPECT_EQ(alert->fire_count(), 2);
+    
+    // Should trigger again
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 53000.0)));
+    EXPECT_EQ(alert->fire_count(), 3);
+}
+
+TEST_F(PriceAlertTest, CooldownPreventsSpam) {
+    auto alert = PriceAlert::Builder()
+        .symbol("BTC/USD")
+        .above(50000.0)
+        .recurring(true)
+        .cooldown(std::chrono::milliseconds(100))
+        .build();
+    
+    // First trigger
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 51000.0)));
+    
+    // Immediately after - should be in cooldown
+    EXPECT_FALSE(alert->check(make_ticker("BTC/USD", 52000.0)));
+    
+    // Wait for cooldown
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    
+    // Should trigger again after cooldown
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 53000.0)));
+}
+
+TEST_F(PriceAlertTest, BetterMessagesWithPriceChange) {
+    auto alert = PriceAlert::Builder()
+        .symbol("BTC/USD")
+        .above(50000.0)
+        .build();
+    
+    // First check (no previous price)
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 51000.0)));
+    std::string msg = alert->last_message();
+    EXPECT_NE(msg.find("Price above"), std::string::npos);
+    
+    // Reset and check again with previous price
+    alert->reset();
+    alert->check(make_ticker("BTC/USD", 49000.0));  // Set previous price
+    EXPECT_TRUE(alert->check(make_ticker("BTC/USD", 51000.0)));
+    msg = alert->last_message();
+    // Should include price change info
+    EXPECT_NE(msg.find("was $"), std::string::npos);
+    EXPECT_NE(msg.find("change"), std::string::npos);
 }
 
 TEST_F(PriceAlertTest, IgnoresOtherSymbols) {

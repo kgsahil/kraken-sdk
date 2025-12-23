@@ -4,6 +4,7 @@
 #include "queue.cpp"  // Include template implementation
 #include "internal/auth.hpp"
 #include "kraken/logger.hpp"
+#include "kraken/strategies.hpp"
 
 #include <algorithm>
 
