@@ -77,7 +77,7 @@ if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
             endif()
             
             # Try to find boost_system library with various naming patterns
-            # Homebrew Boost 1.90 might use different names (libboost_system.dylib, libboost_system.a, etc.)
+            # Homebrew Boost may use different names (libboost_system-mt.dylib, versioned suffixes, etc.)
             find_library(BOOST_SYSTEM_LIB
                 NAMES 
                     boost_system
@@ -106,9 +106,14 @@ if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
                 )
             endif()
             
-            # If still not found, try to find any file with "boost_system" in the name
+            # If still not found, try explicit glob patterns including versioned names
             if(NOT BOOST_SYSTEM_LIB)
-                file(GLOB BOOST_SYSTEM_CANDIDATES "${BOOST_ROOT}/lib/*boost_system*")
+                file(GLOB BOOST_SYSTEM_CANDIDATES
+                    "${BOOST_ROOT}/lib/libboost_system*.dylib"
+                    "${BOOST_ROOT}/lib/libboost_system*.a"
+                    "${BOOST_ROOT}/lib/*boost_system*.dylib"
+                    "${BOOST_ROOT}/lib/*boost_system*.a"
+                )
                 if(BOOST_SYSTEM_CANDIDATES)
                     list(GET BOOST_SYSTEM_CANDIDATES 0 BOOST_SYSTEM_LIB)
                     message(STATUS "Found boost_system by glob: ${BOOST_SYSTEM_LIB}")
