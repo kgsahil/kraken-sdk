@@ -106,10 +106,14 @@ jobs:
       timeout-minutes: 20
       run: |
         # Check if packages are already installed (from cache)
-        $boostInstalled = & "$env:VCPKG_ROOT\vcpkg.exe" list boost-system:x64-windows 2>&1
-        $opensslInstalled = & "$env:VCPKG_ROOT\vcpkg.exe" list openssl:x64-windows 2>&1
+        # vcpkg list returns "No packages are installed" if nothing is installed, which is not an error
+        $boostOutput = & "$env:VCPKG_ROOT\vcpkg.exe" list boost-system:x64-windows 2>&1 | Out-String
+        $opensslOutput = & "$env:VCPKG_ROOT\vcpkg.exe" list openssl:x64-windows 2>&1 | Out-String
         
-        if ($boostInstalled -match "boost-system" -and $opensslInstalled -match "openssl") {
+        $boostInstalled = ($boostOutput -match "boost-system" -and $boostOutput -notmatch "No packages are installed")
+        $opensslInstalled = ($opensslOutput -match "openssl" -and $opensslOutput -notmatch "No packages are installed")
+        
+        if ($boostInstalled -and $opensslInstalled) {
           Write-Host "✅ Dependencies already installed from cache - skipping build"
         } else {
           Write-Host "Installing dependencies (this may take 10-15 minutes on first run)..."
@@ -210,6 +214,9 @@ jobs:
         # Verify Boost installation and show actual library names
         echo "Boost root: $BOOST_ROOT"
         echo ""
+        echo "=== All files in Boost lib directory ==="
+        ls -la "$BOOST_ROOT/lib/" || echo "Cannot list lib directory"
+        echo ""
         echo "=== All Boost libraries ==="
         ls -1 "$BOOST_ROOT/lib/" | grep -i boost || echo "No boost libs found"
         echo ""
@@ -218,15 +225,24 @@ jobs:
         echo ""
         echo "=== Library file details ==="
         if [ -f "$BOOST_ROOT/lib/libboost_system.dylib" ]; then
-          echo "Found: libboost_system.dylib"
+          echo "✅ Found: libboost_system.dylib"
           file "$BOOST_ROOT/lib/libboost_system.dylib"
         elif [ -f "$BOOST_ROOT/lib/libboost_system.a" ]; then
-          echo "Found: libboost_system.a"
+          echo "✅ Found: libboost_system.a"
           file "$BOOST_ROOT/lib/libboost_system.a"
+        elif [ -f "$BOOST_ROOT/lib/libboost_system-mt.dylib" ]; then
+          echo "✅ Found: libboost_system-mt.dylib"
+          file "$BOOST_ROOT/lib/libboost_system-mt.dylib"
+        elif [ -f "$BOOST_ROOT/lib/libboost_system-mt.a" ]; then
+          echo "✅ Found: libboost_system-mt.a"
+          file "$BOOST_ROOT/lib/libboost_system-mt.a"
         else
-          echo "❌ Neither libboost_system.dylib nor libboost_system.a found"
-          echo "Available boost libraries:"
-          ls -1 "$BOOST_ROOT/lib/" | grep boost | head -10
+          echo "❌ No boost_system library found with standard names"
+          echo "Available boost libraries (first 20):"
+          ls -1 "$BOOST_ROOT/lib/" | grep boost | head -20
+          echo ""
+          echo "Trying to find any file containing 'system':"
+          ls -1 "$BOOST_ROOT/lib/" | grep -i system | head -10
         fi
         # Force CMake to use FindBoost by disabling BoostConfig.cmake
         # Also set Boost_USE_STATIC_LIBS=OFF to use dynamic libraries
