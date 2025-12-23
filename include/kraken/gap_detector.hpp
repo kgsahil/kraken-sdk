@@ -13,6 +13,8 @@
 #include <mutex>
 #include <chrono>
 #include <cstdint>
+#include <array>
+#include <cstdio>
 
 namespace kraken {
 
@@ -36,7 +38,7 @@ struct ChannelSymbolKeyHash {
         // Combine hashes using FNV-1a style mixing
         size_t h1 = std::hash<std::string>{}(key.channel);
         size_t h2 = std::hash<std::string>{}(key.symbol);
-        return h1 ^ (h2 + 0x9e3779b9 + (h1 << 6) + (h1 >> 2));
+        return h1 ^ (h2 + 0x9e3779b9U + ((h1 << 6U) | (h1 >> 2U)));
     }
 };
 
@@ -48,9 +50,9 @@ struct ChannelSymbolKeyHash {
 struct GapInfo {
     std::string channel;           ///< Channel where gap occurred (e.g., "ticker", "book")
     std::string symbol;            ///< Symbol affected (e.g., "BTC/USD")
-    uint64_t expected_seq;         ///< Expected sequence number
-    uint64_t actual_seq;           ///< Actual sequence number received
-    uint64_t gap_size;             ///< Number of missing messages
+    uint64_t expected_seq{0};      ///< Expected sequence number
+    uint64_t actual_seq{0};        ///< Actual sequence number received
+    uint64_t gap_size{0};          ///< Number of missing messages
     std::chrono::system_clock::time_point timestamp;  ///< When gap was detected
     
     /// Check if this is a reorder (actual < expected) vs a skip (actual > expected)
@@ -58,10 +60,11 @@ struct GapInfo {
     
     /// Convert to JSON for logging/monitoring
     std::string to_json() const {
-        char buf[512];
         auto ts_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             timestamp.time_since_epoch()).count();
-        snprintf(buf, sizeof(buf),
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg) - snprintf is safe here
+        std::array<char, 512> buf{};
+        const int result = snprintf(buf.data(), buf.size(),
             R"({"channel":"%s","symbol":"%s","expected":%llu,"actual":%llu,"gap_size":%llu,"is_reorder":%s,"timestamp_ms":%lld})",
             channel.c_str(), symbol.c_str(),
             static_cast<unsigned long long>(expected_seq),
@@ -69,7 +72,8 @@ struct GapInfo {
             static_cast<unsigned long long>(gap_size),
             is_reorder() ? "true" : "false",
             static_cast<long long>(ts_ms));
-        return std::string(buf);
+        (void)result;  // Suppress unused result warning
+        return {buf.data()};
     }
 };
 
@@ -168,8 +172,9 @@ public:
             report_gap(channel, symbol, expected, sequence, gap_size);
             it->second = sequence;  // Accept anyway to avoid cascade
             return false;
-            
-        } else if (config_.track_reorders) {
+        }
+        
+        if (config_.track_reorders) {
             // Backward gap (reordered message)
             uint64_t gap_size = expected - sequence - 1;
             report_gap(channel, symbol, expected, sequence, gap_size);
