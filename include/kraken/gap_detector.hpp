@@ -62,8 +62,8 @@ struct GapInfo {
     std::string to_json() const {
         auto ts_ms = std::chrono::duration_cast<std::chrono::milliseconds>(
             timestamp.time_since_epoch()).count();
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg) - snprintf is safe here
         std::array<char, 512> buf{};
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg) - snprintf is safe here
         const int result = snprintf(buf.data(), buf.size(),
             R"({"channel":"%s","symbol":"%s","expected":%llu,"actual":%llu,"gap_size":%llu,"is_reorder":%s,"timestamp_ms":%lld})",
             channel.c_str(), symbol.c_str(),
@@ -214,7 +214,7 @@ public:
     }
 
 private:
-    void report_gap(const std::string& channel, const std::string& symbol,
+    void report_gap(const std::string& channel, const std::string& symbol,  // NOLINT(bugprone-easily-swappable-parameters)
                    uint64_t expected, uint64_t actual, uint64_t gap_size) {
         gap_count_++;
         
