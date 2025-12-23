@@ -101,6 +101,18 @@ std::vector<std::pair<int, std::string>> KrakenClient::get_alerts() const {
     return impl_->get_alerts();
 }
 
+void KrakenClient::enable_alert(int alert_id) {
+    impl_->enable_alert(alert_id);
+}
+
+void KrakenClient::disable_alert(int alert_id) {
+    impl_->disable_alert(alert_id);
+}
+
+bool KrakenClient::is_alert_enabled(int alert_id) const {
+    return impl_->is_alert_enabled(alert_id);
+}
+
 //------------------------------------------------------------------------------
 // Event Loop
 //------------------------------------------------------------------------------

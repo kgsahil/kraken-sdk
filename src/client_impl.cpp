@@ -1,7 +1,7 @@
 #include "internal/client_impl.hpp"
 #include "internal/connection.hpp"
 #include "internal/parser.hpp"
-#include "queue.cpp"  // Include template implementation
+#include "queue.cpp"  // NOLINT(bugprone-suspicious-include) - Intentional for template instantiation
 #include "internal/auth.hpp"
 #include "kraken/logger.hpp"
 #include "kraken/strategies.hpp"
@@ -24,7 +24,7 @@ namespace {
         // Default: use rigtorp::SPSCQueue implementation
         return std::make_unique<DefaultMessageQueue<Message>>(config.queue_capacity());
     }
-}
+}  // namespace
 
 //------------------------------------------------------------------------------
 // SubscriptionImpl - Clean implementation with type-safe callbacks
@@ -41,7 +41,7 @@ SubscriptionImpl::SubscriptionImpl(int id, Channel channel,
     , unsubscribe_fn_(std::move(on_unsubscribe)) {}
 
 // Helper to safely invoke subscription callbacks
-namespace {
+namespace {  // NOLINT(google-readability-namespace-comments)
     template<typename Fn, typename... Args>
     void safe_invoke_subscription_callback(Fn&& fn, Args&&... args) {
         if (fn) {
@@ -133,6 +133,12 @@ void StrategyEngine::evaluate(const Ticker& ticker) {
     
     for (auto& pair : strategies_) {
         auto& entry = pair.second;
+        
+        // Skip if disabled
+        if (!entry.enabled || !entry.strategy->is_enabled()) {
+            continue;
+        }
+        
         // Check if strategy applies to this symbol
         auto syms = entry.strategy->symbols();
         if (std::find(syms.begin(), syms.end(), ticker.symbol) == syms.end()) {
@@ -146,12 +152,17 @@ void StrategyEngine::evaluate(const Ticker& ticker) {
             alert.symbol = ticker.symbol;
             alert.price = ticker.last;
             
-            // Try to get detailed message from strategy (if available)
-            // For PriceAlert, this will include price change context
-            if (auto* price_alert = dynamic_cast<PriceAlert*>(entry.strategy.get())) {
-                alert.message = price_alert->last_message();
+            // Try to get custom message from strategy
+            std::string custom_msg = entry.strategy->get_alert_message(ticker);
+            if (!custom_msg.empty()) {
+                alert.message = custom_msg;
             } else {
-                alert.message = "Strategy condition met";
+                // Fallback: Try PriceAlert-specific message (for backward compatibility)
+                if (auto* price_alert = dynamic_cast<PriceAlert*>(entry.strategy.get())) {
+                    alert.message = price_alert->last_message();
+                } else {
+                    alert.message = "Strategy condition met";
+                }
             }
             
             alert.timestamp = std::chrono::system_clock::now();
@@ -175,6 +186,119 @@ std::vector<std::pair<int, std::string>> StrategyEngine::get_alerts() const {
         result.emplace_back(pair.first, pair.second.strategy->name());
     }
     return result;
+}
+
+void StrategyEngine::evaluate(const OrderBook& book) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    for (auto& pair : strategies_) {
+        auto& entry = pair.second;
+        
+        // Skip if disabled
+        if (!entry.enabled || !entry.strategy->is_enabled()) {
+            continue;
+        }
+        
+        // Only evaluate strategies that need order book data
+        if (!entry.strategy->needs_orderbook()) {
+            continue;
+        }
+        
+        // Check if strategy applies to this symbol
+        auto syms = entry.strategy->symbols();
+        if (std::find(syms.begin(), syms.end(), book.symbol) == syms.end()) {
+            continue;
+        }
+        
+        // Check if condition is met
+        if (entry.strategy->check(book)) {
+            Alert alert;
+            alert.strategy_name = entry.strategy->name();
+            alert.symbol = book.symbol;
+            alert.price = book.mid_price();
+            alert.message = entry.strategy->get_alert_message(Ticker{});  // Empty ticker for book-only
+            if (alert.message.empty()) {
+                alert.message = "Strategy condition met (order book)";
+            }
+            alert.timestamp = std::chrono::system_clock::now();
+            entry.callback(alert);
+        }
+    }
+}
+
+void StrategyEngine::evaluate(const Trade& trade) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    for (auto& pair : strategies_) {
+        auto& entry = pair.second;
+        
+        // Skip if disabled
+        if (!entry.enabled || !entry.strategy->is_enabled()) {
+            continue;
+        }
+        
+        // Only evaluate strategies that need trade data
+        if (!entry.strategy->needs_trades()) {
+            continue;
+        }
+        
+        // Check if strategy applies to this symbol
+        auto syms = entry.strategy->symbols();
+        if (std::find(syms.begin(), syms.end(), trade.symbol) == syms.end()) {
+            continue;
+        }
+        
+        // Check if condition is met
+        if (entry.strategy->check(trade)) {
+            Alert alert;
+            alert.strategy_name = entry.strategy->name();
+            alert.symbol = trade.symbol;
+            alert.price = trade.price;
+            // Create a minimal ticker for message generation
+            Ticker ticker_for_msg;
+            ticker_for_msg.symbol = trade.symbol;
+            ticker_for_msg.last = trade.price;
+            alert.message = entry.strategy->get_alert_message(ticker_for_msg);
+            if (alert.message.empty()) {
+                alert.message = "Strategy condition met (trade)";
+            }
+            alert.timestamp = std::chrono::system_clock::now();
+            entry.callback(alert);
+        }
+    }
+}
+
+void StrategyEngine::evaluate(const Ticker& ticker, const OrderBook& book) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
+    for (auto& pair : strategies_) {
+        auto& entry = pair.second;
+        
+        // Skip if disabled
+        if (!entry.enabled || !entry.strategy->is_enabled()) {
+            continue;
+        }
+        
+        // Check if strategy applies to this symbol
+        auto syms = entry.strategy->symbols();
+        if (std::find(syms.begin(), syms.end(), ticker.symbol) == syms.end()) {
+            continue;
+        }
+        
+        // Check if condition is met (multi-source check)
+        if (entry.strategy->check(ticker, book)) {
+            Alert alert;
+            alert.strategy_name = entry.strategy->name();
+            alert.symbol = ticker.symbol;
+            alert.price = ticker.last;
+            alert.message = entry.strategy->get_alert_message(ticker);
+            if (alert.message.empty()) {
+                alert.message = "Strategy condition met (ticker + order book)";
+            }
+            alert.timestamp = std::chrono::system_clock::now();
+            entry.callback(alert);
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -466,6 +590,18 @@ int KrakenClient::Impl::add_alert(std::shared_ptr<AlertStrategy> strategy,
 
 void KrakenClient::Impl::remove_alert(int alert_id) {
     strategy_engine_.remove(alert_id);
+}
+
+void KrakenClient::Impl::enable_alert(int alert_id) {
+    strategy_engine_.enable(alert_id);
+}
+
+void KrakenClient::Impl::disable_alert(int alert_id) {
+    strategy_engine_.disable(alert_id);
+}
+
+bool KrakenClient::Impl::is_alert_enabled(int alert_id) const {
+    return strategy_engine_.is_enabled(alert_id);
 }
 
 size_t KrakenClient::Impl::alert_count() const {
@@ -797,16 +933,41 @@ void KrakenClient::Impl::dispatch(Message& msg) {
     }
     
     // Evaluate strategies OUTSIDE the lock to avoid blocking callbacks
-    if (msg.type == MessageType::Ticker && msg.holds<Ticker>()) {
-        try {
-            strategy_engine_.evaluate(msg.get<Ticker>());
-            // If alerts fired, telemetry will be updated by alert callbacks
-            // (Note: Actual alert firing is tracked in alert callbacks)
-        } catch (const std::exception& e) {
-            // Strategy evaluation exception - notify via error callback
-            safe_invoke_error_callback(ErrorCode::CallbackError, 
-                                      std::string("Strategy evaluation exception: ") + e.what(), "");
+    try {
+        if (msg.type == MessageType::Ticker && msg.holds<Ticker>()) {
+            const auto& ticker = msg.get<Ticker>();
+            strategy_engine_.evaluate(ticker);
+            
+            // Also check if any strategy needs both ticker and order book
+            // (if we have latest order book for this symbol)
+            {
+                std::shared_lock snap_lock(snapshots_mutex_);
+                auto it = latest_books_.find(ticker.symbol);
+                if (it != latest_books_.end()) {
+                    strategy_engine_.evaluate(ticker, it->second);
+                }
+            }
+        } else if (msg.type == MessageType::Book && msg.holds<OrderBook>()) {
+            const auto& book = msg.get<OrderBook>();
+            strategy_engine_.evaluate(book);
+            
+            // Also check if we have latest ticker for multi-source strategies
+            {
+                std::shared_lock snap_lock(snapshots_mutex_);
+                auto it = latest_tickers_.find(book.symbol);
+                if (it != latest_tickers_.end()) {
+                    strategy_engine_.evaluate(it->second, book);
+                }
+            }
+        } else if (msg.type == MessageType::Trade && msg.holds<Trade>()) {
+            strategy_engine_.evaluate(msg.get<Trade>());
+        } else if (msg.type == MessageType::OHLC && msg.holds<OHLC>()) {
+            strategy_engine_.evaluate(msg.get<OHLC>());
         }
+    } catch (const std::exception& e) {
+        // Strategy evaluation exception - notify via error callback
+        safe_invoke_error_callback(ErrorCode::CallbackError, 
+                                  std::string("Strategy evaluation exception: ") + e.what(), "");
     }
 }
 

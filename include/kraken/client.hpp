@@ -145,6 +145,28 @@ public:
     /// @return Vector of pairs (alert_id, strategy_name)
     std::vector<std::pair<int, std::string>> get_alerts() const;
     
+    /// @brief Enable an alert strategy by ID (without removing)
+    /// 
+    /// Re-enables a previously disabled strategy. The strategy will
+    /// start being evaluated again on market data updates.
+    /// 
+    /// @param alert_id Alert ID returned from add_alert()
+    void enable_alert(int alert_id);
+    
+    /// @brief Disable an alert strategy by ID (without removing)
+    /// 
+    /// Temporarily disables a strategy. It remains registered but
+    /// will not be evaluated until re-enabled.
+    /// 
+    /// @param alert_id Alert ID returned from add_alert()
+    void disable_alert(int alert_id);
+    
+    /// @brief Check if an alert strategy is enabled
+    /// 
+    /// @param alert_id Alert ID returned from add_alert()
+    /// @return true if the alert is enabled
+    bool is_alert_enabled(int alert_id) const;
+    
     //--------------------------------------------------------------------------
     // Event Loop
     //--------------------------------------------------------------------------

@@ -117,16 +117,47 @@ public:
     /// @param ticker Current ticker data
     void evaluate(const Ticker& ticker);
     
+    /// @brief Evaluate all strategies on an order book update
+    /// @param book Current order book data
+    void evaluate(const OrderBook& book);
+    
+    /// @brief Evaluate all strategies on a trade update
+    /// @param trade Recent trade data
+    void evaluate(const Trade& trade);
+    
+    /// @brief Evaluate all strategies with both ticker and order book
+    /// @param ticker Current ticker data
+    /// @param book Current order book data
+    void evaluate(const Ticker& ticker, const OrderBook& book);
+    
     /// @brief Get number of active strategies
     /// @return Strategy count
     size_t count() const;
     
     std::vector<std::pair<int, std::string>> get_alerts() const;
     
+    /// @brief Enable a strategy by ID
+    /// @param id Strategy ID
+    void enable(int id);
+    
+    /// @brief Disable a strategy by ID (without removing)
+    /// @param id Strategy ID
+    void disable(int id);
+    
+    /// @brief Check if strategy is enabled
+    /// @param id Strategy ID
+    /// @return true if enabled
+    bool is_enabled(int id) const;
+    
+    /// @brief Evaluate all strategies on an OHLC update
+    /// @param ohlc Current OHLC candle data
+    void evaluate(const OHLC& ohlc);
+    
 private:
     struct Entry {
         std::shared_ptr<AlertStrategy> strategy;
         AlertCallback callback;
+        bool enabled = true;  // Runtime enable/disable flag
     };
     
     std::unordered_map<int, Entry> strategies_;
@@ -179,6 +210,9 @@ public:
     //--- Strategies ---
     int add_alert(std::shared_ptr<AlertStrategy> strategy, AlertCallback callback);
     void remove_alert(int alert_id);
+    void enable_alert(int alert_id);
+    void disable_alert(int alert_id);
+    bool is_alert_enabled(int alert_id) const;
     size_t alert_count() const;
     std::vector<std::pair<int, std::string>> get_alerts() const;
     

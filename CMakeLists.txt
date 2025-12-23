@@ -104,6 +104,7 @@ add_library(kraken STATIC
     src/logger.cpp
     src/auth.cpp
     src/rate_limiter.cpp
+    src/strategy_config.cpp
 )
 
 target_include_directories(kraken
@@ -254,6 +255,7 @@ if(KRAKEN_BUILD_TESTS)
     add_kraken_test(test_config_env)
     add_kraken_test(test_connection_config)
     add_kraken_test(test_stress_failure)
+    add_kraken_test(test_strategy_advanced)
 endif()
 
 # Installation
