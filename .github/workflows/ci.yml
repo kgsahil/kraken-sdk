@@ -166,6 +166,7 @@ jobs:
         # Unset any existing Boost_DIR to force FindBoost
         unset Boost_DIR || true
         export BOOST_ROOT=$(brew --prefix boost)
+        export Boost_DIR="$BOOST_ROOT/lib/cmake/Boost-1.90.0"
         export BOOST_INCLUDEDIR="$BOOST_ROOT/include"
         export BOOST_LIBRARYDIR="$BOOST_ROOT/lib"
         export OPENSSL_ROOT_DIR=$(brew --prefix openssl@3)

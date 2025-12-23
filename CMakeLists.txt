@@ -39,12 +39,20 @@ if(APPLE)
 endif()
 
 # Set Boost options before find_package
-set(Boost_NO_BOOST_CMAKE ON) # force FindBoost module (Homebrew config can be flaky)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_RUNTIME OFF)
 
-find_package(Boost 1.70 REQUIRED COMPONENTS system)
+# First try with BoostConfig (preferred on Homebrew), then fallback to FindBoost
+set(Boost_NO_BOOST_CMAKE OFF)
+find_package(Boost 1.70 QUIET COMPONENTS system)
+if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
+    message(STATUS "BoostConfig not sufficient, falling back to FindBoost module")
+    set(Boost_NO_BOOST_CMAKE ON)
+    unset(Boost_DIR CACHE)
+    find_package(Boost 1.70 REQUIRED COMPONENTS system)
+endif()
+
 message(STATUS "Boost found: ${Boost_VERSION}")
 message(STATUS "Boost system library: ${Boost_system_LIBRARY}")
 find_package(OpenSSL REQUIRED)
