@@ -214,9 +214,9 @@ public:
     }
 
 private:
-    // NOLINTNEXTLINE(bugprone-easily-swappable-parameters) - Intentional parameter order
     void report_gap(const std::string& channel, const std::string& symbol,
-                   uint64_t expected, uint64_t actual, uint64_t gap_size) {
+                   uint64_t expected, uint64_t actual,  // NOLINT(bugprone-easily-swappable-parameters)
+                   uint64_t gap_size) {
         gap_count_++;
         
         if (gap_callback_) {
