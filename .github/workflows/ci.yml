@@ -64,6 +64,7 @@ jobs:
       shell: powershell
       run: |
         $cachePath = "$env:TEMP\\vcpkg-bincache"
+        New-Item -ItemType Directory -Force -Path $cachePath | Out-Null
         Write-Host "Using vcpkg binary cache: $cachePath"
         echo "VCPKG_DEFAULT_BINARY_CACHE=$cachePath" >> $env:GITHUB_ENV
       
@@ -178,6 +179,7 @@ jobs:
           -DBOOST_ROOT="$BOOST_ROOT" \
           -DBOOST_INCLUDEDIR="$BOOST_INCLUDEDIR" \
           -DBOOST_LIBRARYDIR="$BOOST_LIBRARYDIR" \
+          -DBoost_NO_BOOST_CMAKE=ON \
           -DBoost_USE_STATIC_LIBS=OFF \
           -DBoost_USE_MULTITHREADED=ON \
           -DBoost_DEBUG=ON \
