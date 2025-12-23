@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "kraken/types.hpp"
+#include "kraken/core/types.hpp"
 #include <unordered_map>
 #include <map>
 #include <string>

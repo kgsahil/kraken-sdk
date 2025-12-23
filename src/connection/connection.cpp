@@ -1,6 +1,6 @@
 #include "internal/connection.hpp"
-#include "kraken/error.hpp"
-#include "kraken/connection_config.hpp"
+#include "kraken/core/error.hpp"
+#include "kraken/connection/connection_config.hpp"
 
 #include <iostream>
 #include <cctype>

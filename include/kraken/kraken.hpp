@@ -5,18 +5,18 @@
 /// 
 /// Include this single header to access all SDK functionality.
 
-#include "types.hpp"
-#include "error.hpp"
-#include "backoff.hpp"
-#include "gap_detector.hpp"
-#include "telemetry.hpp"
-#include "config.hpp"
+#include "core/types.hpp"
+#include "core/error.hpp"
+#include "connection/backoff.hpp"
+#include "connection/gap_detector.hpp"
+#include "telemetry/telemetry.hpp"
+#include "core/config.hpp"
 #include "config_env.hpp"
-#include "connection_config.hpp"
+#include "connection/connection_config.hpp"
 #include "metrics.hpp"
 #include "subscription.hpp"
 #include "strategies/strategies.hpp"
-#include "client.hpp"
+#include "core/client.hpp"
 #include "logger.hpp"
 
 // Note: connection_config.hpp is included via config.hpp, but we include it

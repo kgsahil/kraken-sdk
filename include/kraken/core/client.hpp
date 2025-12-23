@@ -9,9 +9,9 @@
 #include "types.hpp"
 #include "error.hpp"
 #include "config.hpp"
-#include "metrics.hpp"
-#include "subscription.hpp"
-#include "strategies/base.hpp"
+#include "../metrics.hpp"
+#include "../subscription.hpp"
+#include "../strategies/base.hpp"
 
 #include <memory>
 #include <future>

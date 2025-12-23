@@ -90,15 +90,15 @@ FetchContent_MakeAvailable(spdlog)
 
 # Main library
 add_library(kraken STATIC
-    src/client.cpp
+    src/core/client.cpp
     src/client_impl.cpp
-    src/connection.cpp
+    src/connection/connection.cpp
     src/parser.cpp
     src/book_engine.cpp
     src/strategy_engine.cpp
     src/subscription.cpp
-    src/config.cpp
-    src/config_env.cpp
+    src/core/config.cpp
+    src/core/config_env.cpp
     src/telemetry/telemetry.cpp
     src/telemetry/metrics_collector.cpp
     src/telemetry/prometheus_server.cpp

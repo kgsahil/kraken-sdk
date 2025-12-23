@@ -9,13 +9,13 @@
 
 #pragma once
 
-#include "kraken/client.hpp"
-#include "kraken/types.hpp"
-#include "kraken/error.hpp"
-#include "kraken/config.hpp"
+#include "kraken/core/client.hpp"
+#include "kraken/core/types.hpp"
+#include "kraken/core/error.hpp"
+#include "kraken/core/config.hpp"
 #include "kraken/metrics.hpp"
 #include "kraken/strategies/base.hpp"
-#include "kraken/telemetry.hpp"
+#include "kraken/telemetry/telemetry.hpp"
 
 #include "kraken/queue.hpp"
 

@@ -1,8 +1,8 @@
 #include "kraken/config_env.hpp"
-#include "kraken/backoff.hpp"
-#include "kraken/telemetry.hpp"
+#include "kraken/connection/backoff.hpp"
+#include "kraken/telemetry/telemetry.hpp"
 #include "kraken/logger.hpp"
-#include "kraken/connection_config.hpp"
+#include "kraken/connection/connection_config.hpp"
 #include <chrono>
 #include <stdexcept>
 

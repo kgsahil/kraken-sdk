@@ -5,7 +5,7 @@
 #include "internal/parser.hpp"
 #include "internal/connection.hpp"
 #include "kraken/strategies/base.hpp"
-#include "kraken/types.hpp"
+#include "kraken/core/types.hpp"
 #include "kraken/telemetry.hpp"
 
 namespace kraken {

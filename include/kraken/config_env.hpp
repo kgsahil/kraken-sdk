@@ -6,7 +6,7 @@
 /// Provides utilities to build ClientConfig from environment variables.
 /// This allows users to configure the SDK without modifying code.
 
-#include "config.hpp"
+#include "core/config.hpp"
 #include <string>
 #include <cstdlib>
 

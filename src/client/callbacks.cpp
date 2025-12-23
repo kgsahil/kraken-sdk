@@ -3,7 +3,7 @@
 
 #include "internal/client_impl.hpp"
 #include "internal/connection.hpp"
-#include "kraken/error.hpp"
+#include "kraken/core/error.hpp"
 
 namespace kraken {
 

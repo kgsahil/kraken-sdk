@@ -1,4 +1,4 @@
-#include "kraken/config.hpp"
+#include "kraken/core/config.hpp"
 #include <stdexcept>
 
 namespace kraken {

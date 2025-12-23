@@ -1,4 +1,4 @@
-#include "kraken/client.hpp"
+#include "kraken/core/client.hpp"
 #include "internal/client_impl.hpp"
 
 namespace kraken {

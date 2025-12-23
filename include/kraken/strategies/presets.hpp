@@ -9,7 +9,7 @@
 #include "price_alert.hpp"
 #include "volume_spike.hpp"
 #include "composite.hpp"
-#include "../types.hpp"
+#include "../core/types.hpp"
 #include <memory>
 #include <cmath>
 #include <algorithm>

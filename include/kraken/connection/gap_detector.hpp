@@ -6,7 +6,7 @@
 /// Detects missing or out-of-order messages by tracking sequence numbers.
 /// Reports gaps via callback for recovery actions.
 
-#include "types.hpp"
+#include "../core/types.hpp"
 #include <string>
 #include <unordered_map>
 #include <functional>

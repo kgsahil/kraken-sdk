@@ -7,11 +7,11 @@
 
 #pragma once
 
-#include "backoff.hpp"
-#include "gap_detector.hpp"
-#include "telemetry.hpp"
-#include "connection_config.hpp"
-#include "rate_limiter.hpp"
+#include "../connection/backoff.hpp"
+#include "../connection/gap_detector.hpp"
+#include "../telemetry/telemetry.hpp"
+#include "../connection/connection_config.hpp"
+#include "../rate_limiter.hpp"
 #include <string>
 #include <chrono>
 #include <memory>

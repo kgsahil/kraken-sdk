@@ -8,7 +8,7 @@
 
 #pragma once
 
-#include "kraken/connection_config.hpp"
+#include "kraken/connection/connection_config.hpp"
 #include "kraken/rate_limiter.hpp"
 
 #include <boost/beast/core.hpp>
