@@ -105,24 +105,12 @@ jobs:
       shell: powershell
       timeout-minutes: 20
       run: |
-        # Check if packages are already installed (from cache)
-        # vcpkg list returns "No packages are installed" if nothing is installed, which is not an error
-        $boostOutput = & "$env:VCPKG_ROOT\vcpkg.exe" list boost-system:x64-windows 2>&1 | Out-String
-        $opensslOutput = & "$env:VCPKG_ROOT\vcpkg.exe" list openssl:x64-windows 2>&1 | Out-String
-        
-        $boostInstalled = ($boostOutput -match "boost-system" -and $boostOutput -notmatch "No packages are installed")
-        $opensslInstalled = ($opensslOutput -match "openssl" -and $opensslOutput -notmatch "No packages are installed")
-        
-        if ($boostInstalled -and $opensslInstalled) {
-          Write-Host "✅ Dependencies already installed from cache - skipping build"
-        } else {
-          Write-Host "Installing dependencies (this may take 10-15 minutes on first run)..."
-          # Use binary caching to speed up subsequent runs
-          # Try to use pre-built binaries from vcpkg's binary cache
-          & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows `
-            --triplet x64-windows `
-            --binarycaching
-        }
+        # vcpkg install is idempotent - it will use cache if packages are already installed
+        # This avoids the complexity of checking vcpkg list output
+        Write-Host "Installing dependencies via vcpkg (will use cache if available)..."
+        & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows `
+          --triplet x64-windows `
+          --binarycaching
     
     - name: Configure CMake
       shell: powershell
