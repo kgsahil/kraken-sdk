@@ -63,8 +63,21 @@ if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
         
         if(BOOST_ROOT)
             message(STATUS "Searching for Boost in: ${BOOST_ROOT}")
+            
+            # First, list what's actually in the lib directory for diagnostics
+            file(GLOB BOOST_LIBS "${BOOST_ROOT}/lib/*boost*")
+            if(BOOST_LIBS)
+                message(STATUS "Found Boost libraries in ${BOOST_ROOT}/lib:")
+                foreach(lib ${BOOST_LIBS})
+                    get_filename_component(libname ${lib} NAME)
+                    message(STATUS "  - ${libname}")
+                endforeach()
+            else()
+                message(WARNING "No Boost libraries found in ${BOOST_ROOT}/lib")
+            endif()
+            
             # Try to find boost_system library with various naming patterns
-            # Homebrew Boost 1.90 might use different names
+            # Homebrew Boost 1.90 might use different names (libboost_system.dylib, libboost_system.a, etc.)
             find_library(BOOST_SYSTEM_LIB
                 NAMES 
                     boost_system
@@ -91,6 +104,15 @@ if(NOT Boost_FOUND OR NOT Boost_system_FOUND)
                         /opt/homebrew/opt/boost/lib
                         /usr/local/opt/boost/lib
                 )
+            endif()
+            
+            # If still not found, try to find any file with "boost_system" in the name
+            if(NOT BOOST_SYSTEM_LIB)
+                file(GLOB BOOST_SYSTEM_CANDIDATES "${BOOST_ROOT}/lib/*boost_system*")
+                if(BOOST_SYSTEM_CANDIDATES)
+                    list(GET BOOST_SYSTEM_CANDIDATES 0 BOOST_SYSTEM_LIB)
+                    message(STATUS "Found boost_system by glob: ${BOOST_SYSTEM_LIB}")
+                endif()
             endif()
         endif()
         
