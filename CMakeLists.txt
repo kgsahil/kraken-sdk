@@ -99,7 +99,10 @@ add_library(kraken STATIC
     src/subscription.cpp
     src/config.cpp
     src/config_env.cpp
-    src/telemetry.cpp
+    src/telemetry/telemetry.cpp
+    src/telemetry/metrics_collector.cpp
+    src/telemetry/prometheus_server.cpp
+    src/telemetry/otlp_exporter.cpp
     src/queue.cpp
     src/logger.cpp
     src/auth.cpp
