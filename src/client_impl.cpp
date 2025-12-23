@@ -158,6 +158,16 @@ size_t StrategyEngine::count() const {
     return strategies_.size();
 }
 
+std::vector<std::pair<int, std::string>> StrategyEngine::get_alerts() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::pair<int, std::string>> result;
+    result.reserve(strategies_.size());
+    for (const auto& pair : strategies_) {
+        result.emplace_back(pair.first, pair.second.strategy->name());
+    }
+    return result;
+}
+
 //------------------------------------------------------------------------------
 // KrakenClient::Impl
 //------------------------------------------------------------------------------
@@ -451,6 +461,10 @@ void KrakenClient::Impl::remove_alert(int alert_id) {
 
 size_t KrakenClient::Impl::alert_count() const {
     return strategy_engine_.count();
+}
+
+std::vector<std::pair<int, std::string>> KrakenClient::Impl::get_alerts() const {
+    return strategy_engine_.get_alerts();
 }
 
 //------------------------------------------------------------------------------

@@ -121,6 +121,8 @@ public:
     /// @return Strategy count
     size_t count() const;
     
+    std::vector<std::pair<int, std::string>> get_alerts() const;
+    
 private:
     struct Entry {
         std::shared_ptr<AlertStrategy> strategy;
@@ -178,6 +180,7 @@ public:
     int add_alert(std::shared_ptr<AlertStrategy> strategy, AlertCallback callback);
     void remove_alert(int alert_id);
     size_t alert_count() const;
+    std::vector<std::pair<int, std::string>> get_alerts() const;
     
     //--- Event Loop ---
     void run();

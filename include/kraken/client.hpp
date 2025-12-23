@@ -137,6 +137,14 @@ public:
     /// Get number of active alerts
     size_t alert_count() const;
     
+    /// @brief Get alert information
+    /// 
+    /// Returns a list of active alert IDs and their strategy names.
+    /// Useful for debugging and monitoring.
+    /// 
+    /// @return Vector of pairs (alert_id, strategy_name)
+    std::vector<std::pair<int, std::string>> get_alerts() const;
+    
     //--------------------------------------------------------------------------
     // Event Loop
     //--------------------------------------------------------------------------

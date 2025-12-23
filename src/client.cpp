@@ -97,6 +97,10 @@ size_t KrakenClient::alert_count() const {
     return impl_->alert_count();
 }
 
+std::vector<std::pair<int, std::string>> KrakenClient::get_alerts() const {
+    return impl_->get_alerts();
+}
+
 //------------------------------------------------------------------------------
 // Event Loop
 //------------------------------------------------------------------------------

@@ -139,35 +139,102 @@ public:
             return *this;
         }
         
+        /// @brief Enable recurring alerts (default: one-time)
+        /// 
+        /// If true, alert will fire every time condition is met.
+        /// If false, alert fires once then requires reset.
+        /// 
+        /// @param recurring Whether to allow recurring alerts
+        /// @return Builder reference for chaining
+        Builder& recurring(bool recurring = true) {
+            recurring_ = recurring;
+            return *this;
+        }
+        
+        /// @brief Set cooldown period between alerts (default: 0 = no cooldown)
+        /// 
+        /// Prevents alert spam by requiring minimum time between alerts.
+        /// 
+        /// @param cooldown_ms Cooldown period in milliseconds
+        /// @return Builder reference for chaining
+        Builder& cooldown(std::chrono::milliseconds cooldown_ms) {
+            cooldown_ = cooldown_ms;
+            return *this;
+        }
+        
         std::shared_ptr<PriceAlert> build() {
-            return std::make_shared<PriceAlert>(symbol_, above_, below_);
+            return std::make_shared<PriceAlert>(symbol_, above_, below_, recurring_, cooldown_);
         }
         
     private:
         std::string symbol_;
         double above_ = std::numeric_limits<double>::max();
         double below_ = std::numeric_limits<double>::lowest();
+        bool recurring_ = false;
+        std::chrono::milliseconds cooldown_{0};
     };
     
-    PriceAlert(std::string symbol, double above, double below)
+    PriceAlert(std::string symbol, double above, double below, bool recurring, std::chrono::milliseconds cooldown)
         : symbol_(std::move(symbol))
         , above_(above)
-        , below_(below) {}
+        , below_(below)
+        , recurring_(recurring)
+        , cooldown_(cooldown) {}
     
     bool check(const Ticker& ticker) override {
-        if (fired_) return false;
+        // Check cooldown
+        auto now = std::chrono::steady_clock::now();
+        if (cooldown_.count() > 0 && last_fired_time_ != std::chrono::steady_clock::time_point{}) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - last_fired_time_);
+            if (elapsed < cooldown_) {
+                return false;  // Still in cooldown
+            }
+        }
+        
+        // Check if already fired (for one-time alerts)
+        if (!recurring_ && fired_) {
+            return false;
+        }
+        
+        // Store previous price for message context
+        double prev_price = last_price_;
+        last_price_ = ticker.last;
         
         bool triggered = false;
+        std::string condition;
+        
         if (ticker.last >= above_) {
             triggered = true;
-            last_message_ = "Price above " + std::to_string(above_);
+            condition = "above";
+            double threshold = above_;
+            if (prev_price > 0.0) {
+                double change_pct = ((ticker.last - prev_price) / prev_price) * 100.0;
+                last_message_ = "Price " + condition + " $" + std::to_string(threshold) 
+                              + " (was $" + std::to_string(prev_price) 
+                              + ", change " + (change_pct >= 0 ? "+" : "") 
+                              + std::to_string(change_pct) + "%)";
+            } else {
+                last_message_ = "Price " + condition + " $" + std::to_string(threshold);
+            }
         } else if (ticker.last <= below_) {
             triggered = true;
-            last_message_ = "Price below " + std::to_string(below_);
+            condition = "below";
+            double threshold = below_;
+            if (prev_price > 0.0) {
+                double change_pct = ((ticker.last - prev_price) / prev_price) * 100.0;
+                last_message_ = "Price " + condition + " $" + std::to_string(threshold) 
+                              + " (was $" + std::to_string(prev_price) 
+                              + ", change " + (change_pct >= 0 ? "+" : "") 
+                              + std::to_string(change_pct) + "%)";
+            } else {
+                last_message_ = "Price " + condition + " $" + std::to_string(threshold);
+            }
         }
         
         if (triggered) {
             fired_ = true;
+            last_fired_time_ = now;
+            fire_count_++;
         }
         return triggered;
     }
@@ -178,16 +245,37 @@ public:
         return {symbol_}; 
     }
     
-    void reset() override { fired_ = false; }
+    void reset() override { 
+        fired_ = false; 
+        last_fired_time_ = std::chrono::steady_clock::time_point{};
+        fire_count_ = 0;
+    }
     
     const std::string& last_message() const { return last_message_; }
+    
+    /// @brief Check if alert has fired
+    /// @return true if alert has fired at least once
+    bool has_fired() const { return fired_; }
+    
+    /// @brief Get number of times alert has fired
+    /// @return Fire count
+    size_t fire_count() const { return fire_count_; }
+    
+    /// @brief Check if alert is recurring
+    /// @return true if recurring, false if one-time
+    bool is_recurring() const { return recurring_; }
     
 private:
     std::string symbol_;
     double above_;
     double below_;
+    bool recurring_;
+    std::chrono::milliseconds cooldown_;
     bool fired_ = false;
     std::string last_message_;
+    double last_price_ = 0.0;
+    std::chrono::steady_clock::time_point last_fired_time_{};
+    size_t fire_count_ = 0;
 };
 
 //------------------------------------------------------------------------------
