@@ -58,6 +58,7 @@ client.add_alert(alert, [](const kraken::Alert& a) {
 - **Message Gap Detection** - Tracks sequence numbers to identify missed messages
 - **Automatic Reconnection** - Exponential backoff with jitter (production-ready)
 - **Resubscription** - Automatically restores subscriptions after reconnection
+- **Outbound Rate Limiter** - Token-bucket throttling of all outbound messages (configurable RPS + burst)
 
 ```cpp
 client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
@@ -90,7 +91,7 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
 ### 📊 **Enterprise Monitoring & Observability**
 - **Dual Metrics System:**
   - **Local API** (`get_metrics()`) - Real-time in-process metrics
-  - **OpenTelemetry Integration** - Export to Prometheus, Jaeger, Grafana
+  - **OpenTelemetry + OTLP** - OTLP HTTP exporter and Prometheus endpoint (Jaeger/Grafana ready)
 - **Structured Logging** - spdlog with levels, rotation, file/console output
 - **Performance Dashboard** - Live terminal UI for real-time monitoring
 - **Comprehensive Metrics:**

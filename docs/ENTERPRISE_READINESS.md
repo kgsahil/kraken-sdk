@@ -15,7 +15,7 @@
 | **Performance** | Lock-free SPSC queue | ✅ Complete |
 | **Reliability** | Exponential backoff | ✅ Complete |
 | **Data Integrity** | CRC32 checksum | ✅ Complete |
-| **Observability** | Metrics collection | ✅ Complete |
+| **Observability** | Metrics + OTLP/Prometheus | ✅ Complete |
 | **Testing** | 17 test suites | ✅ Complete |
 | **Benchmarking** | Google Benchmark | ✅ Complete |
 | **Design Patterns** | Builder, Strategy, Reactor | ✅ Complete |
@@ -61,7 +61,22 @@
 
 ---
 
-### 3. **Authentication Implementation** ✅ **IMPLEMENTED**
+### 3. **Observability (OTLP + Prometheus)** ✅ **IMPLEMENTED**
+**Status:** ✅ Complete - OpenTelemetry OTLP HTTP exporter + Prometheus scrape endpoint
+
+**Implementation:**
+- ✅ OTLP HTTP exporter with periodic flush and retry
+- ✅ Prometheus-compatible metrics HTTP endpoint
+- ✅ Health endpoint
+- ✅ Integrated with KrakenClient metrics
+
+**Location:** `src/telemetry.cpp` - `OtlpHttpExporter`, `MetricsHttpServer`
+
+**Usage:** Enable via env: `TELEMETRY_OTLP_EXPORT=true`, `OTLP_ENDPOINT=http://...`, `TELEMETRY_HTTP_SERVER=true`
+
+---
+
+### 4. **Authentication Implementation** ✅ **IMPLEMENTED**
 **Status:** ✅ Complete - HMAC-SHA512 authentication implemented
 
 **Implementation:**
