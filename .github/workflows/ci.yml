@@ -108,7 +108,7 @@ jobs:
         # vcpkg install is idempotent - it will use cache if packages are already installed
         # This avoids the complexity of checking vcpkg list output
         Write-Host "Installing dependencies via vcpkg (will use cache if available)..."
-        & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows openssl:x64-windows `
+        & "$env:VCPKG_ROOT\vcpkg.exe" install boost-system:x64-windows boost-beast:x64-windows openssl:x64-windows `
           --triplet x64-windows `
           --binarycaching
     

@@ -215,6 +215,7 @@ target_include_directories(kraken
 
 target_link_libraries(kraken
     PUBLIC
+        Boost::boost
         Threads::Threads
     PRIVATE
         Boost::system
