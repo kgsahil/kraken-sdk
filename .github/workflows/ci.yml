@@ -56,12 +56,16 @@ jobs:
     runs-on: windows-latest
     if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
     
-    env:
-      VCPKG_DEFAULT_BINARY_CACHE: ${{ runner.temp }}/vcpkg-bincache
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      
+    - name: Set vcpkg binary cache path
+      shell: powershell
+      run: |
+        $cachePath = "$env:TEMP\\vcpkg-bincache"
+        Write-Host "Using vcpkg binary cache: $cachePath"
+        echo "VCPKG_DEFAULT_BINARY_CACHE=$cachePath" >> $env:GITHUB_ENV
       
     - name: Install vcpkg
       shell: powershell
