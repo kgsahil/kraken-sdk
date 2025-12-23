@@ -144,7 +144,15 @@ void StrategyEngine::evaluate(const Ticker& ticker) {
             alert.strategy_name = entry.strategy->name();
             alert.symbol = ticker.symbol;
             alert.price = ticker.last;
-            alert.message = "Strategy condition met";
+            
+            // Try to get detailed message from strategy (if available)
+            // For PriceAlert, this will include price change context
+            if (auto* price_alert = dynamic_cast<PriceAlert*>(entry.strategy.get())) {
+                alert.message = price_alert->last_message();
+            } else {
+                alert.message = "Strategy condition met";
+            }
+            
             alert.timestamp = std::chrono::system_clock::now();
             
             // Fire callback

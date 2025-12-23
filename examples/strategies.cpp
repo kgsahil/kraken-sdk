@@ -31,10 +31,13 @@ int main(int argc, char* argv[]) {
     //--------------------------------------------------------------------------
     
     // Alert when BTC goes above $100,000 or below $90,000
+    // Using recurring alerts with 5-second cooldown to prevent spam
     auto btc_price = kraken::PriceAlert::Builder()
         .symbol("BTC/USD")
         .above(100000.0)
         .below(90000.0)
+        .recurring(true)  // Fire every time condition is met
+        .cooldown(std::chrono::seconds(5))  // But wait 5 seconds between alerts
         .build();
     
     examples::g_client->add_alert(btc_price, [](const kraken::Alert& alert) {
