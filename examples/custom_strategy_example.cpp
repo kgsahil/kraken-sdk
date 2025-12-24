@@ -150,17 +150,21 @@ public:
 //------------------------------------------------------------------------------
 
 int main(int argc, char* argv[]) {
-    auto config = load_config(argc, argv);
-    if (!config) {
+    // Load config file if provided
+    try {
+        examples::load_config_from_args(argc, argv);
+    } catch (const std::exception& e) {
+        std::cerr << "Error loading config file: " << e.what() << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [--config=path/to/config.cfg]" << std::endl;
         return 1;
     }
     
-    KrakenClient client(*config);
+    // Create client with default config
+    auto client_ptr = examples::create_default_client();
+    auto& client = *client_ptr;
     
-    // Setup error handling
-    client.on_error([](const Error& err) {
-        std::cerr << "Error: " << err.message << std::endl;
-    });
+    examples::setup_signal_handlers();
+    examples::setup_common_callbacks(client);
     
     // Example 1: Simple ticker-based strategy
     auto wide_spread = std::make_shared<WideSpreadStrategy>("BTC/USD", 100.0);
@@ -188,10 +192,11 @@ int main(int argc, char* argv[]) {
     std::cout << "Monitoring BTC/USD with custom strategies..." << std::endl;
     std::cout << "Press Ctrl+C to stop\n" << std::endl;
     
-    // Run for 60 seconds
-    client.run_async();
-    std::this_thread::sleep_for(std::chrono::seconds(60));
-    client.stop();
+    // Store client in global for signal handler
+    examples::g_client = std::move(client_ptr);
+    
+    // Run until interrupted
+    client.run();
     
     return 0;
 }
