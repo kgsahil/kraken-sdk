@@ -58,7 +58,7 @@ client.add_alert(alert, [](const kraken::Alert& a) {
 - **Runtime Control** - Enable/disable strategies dynamically without removal
 - **Extensible** - Custom strategies via `AlertStrategy` base class
 
-📖 **Learn more:** [Strategy Configuration Guide](docs/STRATEGY_CONFIGURATION.md) | [Strategy Flexibility Analysis](docs/STRATEGY_FLEXIBILITY_ANALYSIS.md)
+📖 **Learn more:** [Strategy Engine Guide](docs/STRATEGY_ENGINE.md)
 
 ### 🔒 **Data Integrity & Reliability**
 - **CRC32 Checksum Validation** - Detects corrupted order book data
@@ -81,7 +81,7 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
 });
 ```
 
-📖 **Learn more:** [Connection Configuration](docs/ENVIRONMENT_VARIABLES.md#connection-settings) | [Enterprise Readiness](docs/ENTERPRISE_READINESS.md)
+📖 **Learn more:** [Connection Configuration](docs/ENVIRONMENT_VARIABLES.md#connection-settings) | [Project Analysis](docs/PROJECT_ANALYSIS.md)
 
 ### ⚡ **High-Performance Architecture**
 - **Optional Lock-Free SPSC Queue** - Zero-contention message passing (88M ops/sec) when enabled, or direct dispatch for minimal latency
@@ -90,7 +90,7 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
 - **Zero-Copy JSON Parsing** - RapidJSON for minimal allocations
 - **O(log n) Order Book Updates** - `std::map` for efficient price level management
 
-📖 **Learn more:** [Performance Benchmarks](#-performance-benchmarks) | [Architecture Details](docs/REFACTORING_PLAN.md)
+📖 **Learn more:** [Performance Benchmarks](#-performance-benchmarks) | [Architecture Analysis](docs/PROJECT_ANALYSIS.md)
 
 ### 📊 **Enterprise Monitoring & Observability**
 - **Dual Metrics System:**
@@ -159,7 +159,17 @@ client.subscribe_balances();
 - **Thread-Safe API** - Safe concurrent access to callbacks, subscriptions, metrics
 - **Comprehensive Error Handling** - Exceptions for setup, callbacks for runtime
 
-📖 **Learn more:** [Architecture Details](docs/REFACTORING_PLAN.md) | [Enterprise Readiness](docs/ENTERPRISE_READINESS.md)
+**Circuit Breaker Logic:**
+```mermaid
+stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open: Failures > 5
+    Open --> HalfOpen: Wait 30s
+    HalfOpen --> Closed: Success > 2
+    HalfOpen --> Open: Any Failure
+```
+
+📖 **Learn more:** [Project Analysis / Architecture](docs/PROJECT_ANALYSIS.md)
 
 ### 📦 **Developer Experience**
 - **Environment Variable Configuration** - Deploy without code changes
@@ -174,38 +184,48 @@ client.subscribe_balances();
 
 ## 🏗️ Architecture
 
+### System Components
+
+```mermaid
+graph TD
+    User[User Application]
+    subgraph "Kraken SDK"
+        Client[KrakenClient]
+        Net[Network I/O]
+        Queue[SPSC Queue]
+        Disp[Dispatcher]
+        Strat[Strategy Engine]
+    end
+    
+    User -->|Subscribe| Client
+    Client -->|Manage| Net
+    Net -->|Push Data| Queue
+    Queue -->|Pop Data| Disp
+    Disp -->|1. OnTicker| User
+    Disp -->|2. Evaluate| Strat
+    Strat -->|3. OnAlert| User
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                    KRAKEN ENTERPRISE SDK                           │
-├────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
-│   │   WebSocket  │     │  Lock-Free   │     │  Dispatcher  │       │
-│   │   I/O Thread │────▶│  SPSC Queue  │────▶│    Thread    │       │
-│   │   (Producer) │     │ (Optional)   │     │  (Consumer)  │       │
-│   │              │     │ 88M ops/s   │     │              │       │
-│   └──────┬───────┘     └──────────────┘     └──────┬───────┘       │
-│          │                                         │                │
-│          │ Direct Mode (queue disabled)            │                │
-│          └─────────────────────────────────────────┘                │
-│                                                                     │
-│          │              ┌───────────────────────────┼────────┐       │
-│          │              │                           ▼       │       │
-│          │              │   ┌──────────────┐  ┌────────────┐│       │
-│          ▼              │   │   Strategy   │  │    User    ││       │
-│   ┌──────────────┐      │   │    Engine    │  │  Callbacks ││       │
-│   │    Kraken    │      │   │ (Alerts)     │  │            ││       │
-│   │   Exchange   │      │   │ OHLC/Trades  │  │            ││       │
-│   └──────────────┘      │   └──────────────┘  └────────────┘│       │
-│                         │         Your Trading Logic         │       │
-│                         └───────────────────────────────────┘       │
-│                                                                     │
-│   ┌─────────────────────────────────────────────────────────┐     │
-│   │  OpenTelemetry → Prometheus / Jaeger / Grafana          │     │
-│   │  Structured Logging → Files / Console                   │     │
-│   │  Metrics API → Real-time Dashboards                      │     │
-│   └─────────────────────────────────────────────────────────┘     │
-└────────────────────────────────────────────────────────────────────┘
+
+### High-Performance Data Path
+
+```mermaid
+sequenceDiagram
+    participant Net as Network (IO)
+    participant Q as SPSC Queue
+    participant Disp as Dispatcher
+    participant User as User Callback
+    participant Strat as Strategy Engine
+
+    Net->>Q: Push Market Data (Lock Free)
+    Note over Net,Q: ~12ns Latency
+    Q->>Disp: Pop Data
+    
+    Disp->>User: 1. Invoke specific callback (e.g. on_ticker)
+    Disp->>Strat: 2. Evaluate Strategies
+    
+    opt Strategy Match
+        Strat->>User: Fire Alert Callback
+    end
 ```
 
 **Architecture Modes:**
@@ -569,20 +589,19 @@ kraken-sdk/
 ## 📚 Documentation
 
 ### Quick Links
+- **[Using the Strategy Engine](docs/STRATEGY_ENGINE.md)** - Guide to creating and configuring strategies
 - **[Configuration Guide](docs/ENVIRONMENT_VARIABLES.md)** - All environment variables and settings
-- **[Strategy Engine](docs/STRATEGY_CONFIGURATION.md)** - Trading strategies guide
+- **[Architecture & Analysis](docs/PROJECT_ANALYSIS.md)** - Why this SDK is production-ready
 - **[OpenTelemetry](docs/OTEL_STATUS.md)** - Monitoring and observability
 - **[Performance](docs/BENCHMARKS.md)** - Detailed benchmark results
-- **[Architecture](docs/REFACTORING_PLAN.md)** - Code structure and design
 
 ### Complete Documentation
-- **[Feature Status](docs/STATUS_SUMMARY.md)** - All implemented features
+- **[Feature Status](docs/PROJECT_ANALYSIS.md#feature-completion-status)** - All implemented features
 - **[Test Results](docs/TEST_RESULTS.md)** - Test coverage and results
 - **[Stress Testing](docs/STRESS_TESTING.md)** - Failure scenarios and resilience
 - **[Metrics Guide](docs/METRICS.md)** - Metrics collection and monitoring
 - **[API Documentation](docs/DOXYGEN_DOCUMENTATION.md)** - Doxygen API reference
 - **[Examples](examples/README.md)** - 9 practical examples
-- **[CI/CD](docs/CI_CD.md)** - Continuous integration setup
 
 **Generate API Documentation:**
 ```bash
@@ -601,7 +620,18 @@ doxygen Doxyfile
 - **🧪 Comprehensive Testing** - 25 test suites, 328 test cases, 100% pass rate
 - **📚 Extensive Documentation** - Doxygen API docs, guides, examples, configuration reference
 
-📖 **Explore:** [Feature Status](docs/STATUS_SUMMARY.md) | [Enterprise Readiness](docs/ENTERPRISE_READINESS.md) | [Architecture](docs/REFACTORING_PLAN.md)
+### Strategy Logic
+```mermaid
+flowchart LR
+    Data[Market Data] --> |Parse| Event[Event Loop]
+    Event --> |Dispatch| Strat[Strategy Engine]
+    Strat --> |Check| Cond{Condition Met?}
+    Cond -- Yes --> Alert[Fire Alert]
+    Cond -- No --> Ignore[No Action]
+    Alert --> User[User Callback]
+```
+
+📖 **Explore:** [Strategy Engine](docs/STRATEGY_ENGINE.md) | [Project Analysis](docs/PROJECT_ANALYSIS.md) | [Benchmarks](docs/BENCHMARKS.md)
 
 ---
 
