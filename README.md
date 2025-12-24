@@ -27,6 +27,14 @@ int main() {
     client.run();
 }
 ```
+## 🏆 Key Highlights
+
+- **🎯 Trading Strategy Engine** - Built-in intelligence with composition, presets, and runtime control
+- **⚡ High Performance** - Sub-microsecond latency, lock-free architecture, 88M+ ops/sec queue
+- **📊 Enterprise Observability** - OpenTelemetry, Prometheus, structured logging
+- **🔒 Production-Grade Reliability** - CRC32 validation, gap detection, automatic reconnection
+- **🧪 Comprehensive Testing** - 25 test suites, 328 test cases, 100% pass rate
+- **📚 Extensive Documentation** - Doxygen API docs, guides, examples, configuration reference
 
 ---
 
@@ -34,6 +42,17 @@ int main() {
 
 ### 🎯 **Trading Strategy Engine** (Unique Differentiator)
 Built-in intelligent alert system that monitors market conditions in real-time:
+
+```mermaid
+flowchart LR
+    Data[Market Data] --> |Parse| Event[Event Loop]
+    Event --> |Dispatch| Strat[Strategy Engine]
+    Strat --> |Check| Cond{Condition Met?}
+    Cond -- Yes --> Alert[Fire Alert]
+    Cond -- No --> Ignore[No Action]
+    Alert --> User[User Callback]
+```
+
 
 ```cpp
 // Price threshold alert
@@ -608,30 +627,6 @@ kraken-sdk/
 doxygen Doxyfile
 # Open html/index.html
 ```
-
----
-
-## 🏆 Key Highlights
-
-- **🎯 Trading Strategy Engine** - Built-in intelligence with composition, presets, and runtime control
-- **⚡ High Performance** - Sub-microsecond latency, lock-free architecture, 88M+ ops/sec queue
-- **📊 Enterprise Observability** - OpenTelemetry, Prometheus, structured logging
-- **🔒 Production-Grade Reliability** - CRC32 validation, gap detection, automatic reconnection
-- **🧪 Comprehensive Testing** - 25 test suites, 328 test cases, 100% pass rate
-- **📚 Extensive Documentation** - Doxygen API docs, guides, examples, configuration reference
-
-### Strategy Logic
-```mermaid
-flowchart LR
-    Data[Market Data] --> |Parse| Event[Event Loop]
-    Event --> |Dispatch| Strat[Strategy Engine]
-    Strat --> |Check| Cond{Condition Met?}
-    Cond -- Yes --> Alert[Fire Alert]
-    Cond -- No --> Ignore[No Action]
-    Alert --> User[User Callback]
-```
-
-📖 **Explore:** [Strategy Engine](docs/STRATEGY_ENGINE.md) | [Project Analysis](docs/PROJECT_ANALYSIS.md) | [Benchmarks](docs/BENCHMARKS.md)
 
 ---
 
