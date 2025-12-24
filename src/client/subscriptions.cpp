@@ -94,6 +94,73 @@ void KrakenClient::Impl::send_unsubscribe(Channel channel,
     safe_send_message(msg);
 }
 
+Subscription KrakenClient::Impl::subscribe_own_trades() {
+    int id = next_sub_id_++;
+    
+    // Private channels don't need symbols
+    auto impl = std::make_shared<SubscriptionImpl>(
+        id, Channel::OwnTrades, std::vector<std::string>{},
+        [this](Channel ch, const std::vector<std::string>&, int) {
+            send_subscribe(ch, {}, 0);
+        },
+        [this](Channel ch, const std::vector<std::string>&) {
+            send_unsubscribe(ch, {});
+        }
+    );
+    
+    {
+        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+        subscriptions_[id] = impl;
+    }
+    
+    send_subscribe(Channel::OwnTrades, {}, 0);
+    return Subscription(Subscription::create_impl_from_internal(impl));
+}
+
+Subscription KrakenClient::Impl::subscribe_open_orders() {
+    int id = next_sub_id_++;
+    
+    auto impl = std::make_shared<SubscriptionImpl>(
+        id, Channel::OpenOrders, std::vector<std::string>{},
+        [this](Channel ch, const std::vector<std::string>&, int) {
+            send_subscribe(ch, {}, 0);
+        },
+        [this](Channel ch, const std::vector<std::string>&) {
+            send_unsubscribe(ch, {});
+        }
+    );
+    
+    {
+        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+        subscriptions_[id] = impl;
+    }
+    
+    send_subscribe(Channel::OpenOrders, {}, 0);
+    return Subscription(Subscription::create_impl_from_internal(impl));
+}
+
+Subscription KrakenClient::Impl::subscribe_balances() {
+    int id = next_sub_id_++;
+    
+    auto impl = std::make_shared<SubscriptionImpl>(
+        id, Channel::Balances, std::vector<std::string>{},
+        [this](Channel ch, const std::vector<std::string>&, int) {
+            send_subscribe(ch, {}, 0);
+        },
+        [this](Channel ch, const std::vector<std::string>&) {
+            send_unsubscribe(ch, {});
+        }
+    );
+    
+    {
+        std::lock_guard<std::mutex> lock(subscriptions_mutex_);
+        subscriptions_[id] = impl;
+    }
+    
+    send_subscribe(Channel::Balances, {}, 0);
+    return Subscription(Subscription::create_impl_from_internal(impl));
+}
+
 void KrakenClient::Impl::send_pending_subscriptions() {
     std::lock_guard<std::mutex> lock(subscriptions_mutex_);
     for (auto& pair : subscriptions_) {

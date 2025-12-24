@@ -81,6 +81,18 @@ public:
     /// Set OHLC update callback
     void on_ohlc(OHLCCallback callback);
     
+    /// Set order update callback (private channel - requires authentication)
+    /// @note Requires API key/secret to be configured
+    void on_order(OrderCallback callback);
+    
+    /// Set own trade callback (private channel - requires authentication)
+    /// @note Requires API key/secret to be configured
+    void on_own_trade(OwnTradeCallback callback);
+    
+    /// Set balance update callback (private channel - requires authentication)
+    /// @note Requires API key/secret to be configured
+    void on_balance(BalanceCallback callback);
+    
     /// Set error callback (for runtime errors)
     void on_error(ErrorCallback callback);
     
@@ -120,6 +132,21 @@ public:
     /// @param depth Order book depth (10, 25, 100, 500, 1000)
     /// @return Subscription handle
     Subscription subscribe_book(const std::vector<std::string>& symbols, int depth = 10);  // NOLINT(readability-magic-numbers)
+    
+    /// Subscribe to own trades (private channel - requires authentication)
+    /// @return Subscription handle
+    /// @note Requires API key/secret to be configured
+    Subscription subscribe_own_trades();
+    
+    /// Subscribe to open orders (private channel - requires authentication)
+    /// @return Subscription handle
+    /// @note Requires API key/secret to be configured
+    Subscription subscribe_open_orders();
+    
+    /// Subscribe to balances (private channel - requires authentication)
+    /// @return Subscription handle
+    /// @note Requires API key/secret to be configured
+    Subscription subscribe_balances();
     
     //--------------------------------------------------------------------------
     // Alert Strategies

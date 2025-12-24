@@ -38,6 +38,18 @@ void KrakenClient::on_ohlc(OHLCCallback callback) {
     impl_->on_ohlc(std::move(callback));
 }
 
+void KrakenClient::on_order(OrderCallback callback) {
+    impl_->on_order(std::move(callback));
+}
+
+void KrakenClient::on_own_trade(OwnTradeCallback callback) {
+    impl_->on_own_trade(std::move(callback));
+}
+
+void KrakenClient::on_balance(BalanceCallback callback) {
+    impl_->on_balance(std::move(callback));
+}
+
 void KrakenClient::on_error(ErrorCallback callback) {
     impl_->on_error(std::move(callback));
 }
@@ -78,6 +90,18 @@ Subscription KrakenClient::subscribe(Channel channel,
 Subscription KrakenClient::subscribe_book(const std::vector<std::string>& symbols, 
                                            int depth) {
     return impl_->subscribe_book(symbols, depth);
+}
+
+Subscription KrakenClient::subscribe_own_trades() {
+    return impl_->subscribe_own_trades();
+}
+
+Subscription KrakenClient::subscribe_open_orders() {
+    return impl_->subscribe_open_orders();
+}
+
+Subscription KrakenClient::subscribe_balances() {
+    return impl_->subscribe_balances();
 }
 
 //------------------------------------------------------------------------------

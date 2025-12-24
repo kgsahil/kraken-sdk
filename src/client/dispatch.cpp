@@ -217,6 +217,24 @@ void KrakenClient::Impl::dispatch(Message& msg) {
                 }
                 break;
                 
+            case MessageType::Order:
+                if (order_callback_ && msg.holds<Order>()) {
+                    safe_invoke_callback(order_callback_, msg.get<Order>());
+                }
+                break;
+                
+            case MessageType::OwnTrade:
+                if (own_trade_callback_ && msg.holds<OwnTrade>()) {
+                    safe_invoke_callback(own_trade_callback_, msg.get<OwnTrade>());
+                }
+                break;
+                
+            case MessageType::Balance:
+                if (balance_callback_ && msg.holds<std::unordered_map<std::string, Balance>>()) {
+                    safe_invoke_callback(balance_callback_, msg.get<std::unordered_map<std::string, Balance>>());
+                }
+                break;
+                
             case MessageType::Error:
                 if (error_callback_ && msg.holds<Error>()) {
                     // Error callback itself - don't use safe_invoke_callback to avoid recursion

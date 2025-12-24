@@ -45,6 +45,9 @@ enum class MessageType {
     Trade,
     Book,
     OHLC,
+    Order,          ///< Open order update (private)
+    OwnTrade,      ///< User's executed trade (private)
+    Balance,        ///< Balance update (private)
     Error,
     Subscribed,
     Unsubscribed,
@@ -63,6 +66,9 @@ using MessageData = std::variant<
     Trade,
     OrderBook,
     OHLC,
+    Order,            // Private: open order
+    OwnTrade,         // Private: user's executed trade
+    std::unordered_map<std::string, Balance>,  // Private: balances map
     Error,
     SubscribedMsg,
     UnsubscribedMsg,
@@ -192,6 +198,9 @@ public:
     void on_trade(TradeCallback callback);
     void on_book(BookCallback callback);
     void on_ohlc(OHLCCallback callback);
+    void on_order(OrderCallback callback);          ///< Private: open order updates
+    void on_own_trade(OwnTradeCallback callback);  ///< Private: user's executed trades
+    void on_balance(BalanceCallback callback);      ///< Private: balance updates
     void on_error(ErrorCallback callback);
     void on_connection_state(ConnectionStateCallback callback);
     
@@ -204,6 +213,9 @@ public:
     //--- Subscriptions ---
     Subscription subscribe(Channel channel, const std::vector<std::string>& symbols);
     Subscription subscribe_book(const std::vector<std::string>& symbols, int depth);
+    Subscription subscribe_own_trades();    ///< Private: subscribe to own trades (no symbols needed)
+    Subscription subscribe_open_orders();   ///< Private: subscribe to open orders (no symbols needed)
+    Subscription subscribe_balances();       ///< Private: subscribe to balances (no symbols needed)
     void send_subscribe(Channel channel, const std::vector<std::string>& symbols, int depth = 0);
     void send_unsubscribe(Channel channel, const std::vector<std::string>& symbols);
     
@@ -283,6 +295,9 @@ private:
     TradeCallback trade_callback_;
     BookCallback book_callback_;
     OHLCCallback ohlc_callback_;
+    OrderCallback order_callback_;          ///< Private: open orders
+    OwnTradeCallback own_trade_callback_;  ///< Private: own trades
+    BalanceCallback balance_callback_;      ///< Private: balances
     ErrorCallback error_callback_;
     ConnectionStateCallback state_callback_;
     

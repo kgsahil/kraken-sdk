@@ -10,6 +10,7 @@
 #include <chrono>
 #include <functional>
 #include <limits>
+#include <unordered_map>
 
 namespace kraken {
 
@@ -21,10 +22,13 @@ namespace kraken {
 /// 
 /// Defines the available data channels that can be subscribed to.
 enum class Channel {
-    Ticker,  ///< Real-time ticker updates (bid, ask, last, volume)
-    Trade,   ///< Trade execution updates
-    Book,    ///< Order book updates (bids and asks)
-    OHLC     ///< OHLC (Open/High/Low/Close) candle data
+    Ticker,      ///< Real-time ticker updates (bid, ask, last, volume)
+    Trade,       ///< Trade execution updates
+    Book,        ///< Order book updates (bids and asks)
+    OHLC,        ///< OHLC (Open/High/Low/Close) candle data
+    OwnTrades,   ///< User's executed trades (private, requires auth)
+    OpenOrders,  ///< User's open orders (private, requires auth)
+    Balances     ///< Account balances (private, requires auth)
 };
 
 /// @brief Order side (buy or sell)
@@ -262,6 +266,121 @@ struct OHLC {
     int interval = 0;       ///< Candle interval in minutes
 };
 
+/// @brief Order status
+enum class OrderStatus {
+    Pending,    ///< Order is pending
+    Open,       ///< Order is open (active)
+    Closed,     ///< Order is closed (filled or cancelled)
+    Cancelled,  ///< Order was cancelled
+    Expired     ///< Order expired
+};
+
+/// @brief User's open order
+/// 
+/// Represents an active order placed by the user.
+struct Order {
+    std::string order_id;      ///< Unique order identifier
+    std::string symbol;        ///< Trading pair (e.g., "BTC/USD")
+    Side side = Side::Buy;     ///< Buy or sell side
+    OrderType type = OrderType::Limit;  ///< Market or limit order
+    OrderStatus status = OrderStatus::Open;  ///< Order status
+    double price = 0.0;        ///< Order price (for limit orders)
+    double quantity = 0.0;     ///< Order quantity
+    double filled = 0.0;        ///< Quantity already filled
+    double remaining = 0.0;    ///< Remaining quantity to fill
+    std::string timestamp;     ///< Order timestamp
+    std::string userref;       ///< User reference ID (optional)
+    
+    /// @brief Get fill percentage (0.0 to 100.0)
+    /// @return Fill percentage
+    double fill_percentage() const {
+        if (quantity <= 0.0) return 0.0;
+        return (filled / quantity) * 100.0;
+    }
+    
+    /// @brief Check if order is fully filled
+    /// @return true if filled >= quantity
+    bool is_filled() const {
+        return filled >= quantity;
+    }
+    
+    /// @brief Convert to JSON string for web integration
+    /// @return JSON representation of the order
+    std::string to_json() const {
+        char buf[512];
+        const char* side_str = (side == Side::Buy) ? "buy" : "sell";
+        const char* type_str = (type == OrderType::Market) ? "market" : "limit";
+        const char* status_str = "open";
+        switch (status) {
+            case OrderStatus::Pending: status_str = "pending"; break;
+            case OrderStatus::Open: status_str = "open"; break;
+            case OrderStatus::Closed: status_str = "closed"; break;
+            case OrderStatus::Cancelled: status_str = "cancelled"; break;
+            case OrderStatus::Expired: status_str = "expired"; break;
+        }
+        snprintf(buf, sizeof(buf),
+            R"({"order_id":"%s","symbol":"%s","side":"%s","type":"%s","status":"%s","price":%.8f,"quantity":%.8f,"filled":%.8f,"remaining":%.8f,"fill_percent":%.2f,"timestamp":"%s"})",
+            order_id.c_str(), symbol.c_str(), side_str, type_str, status_str,
+            price, quantity, filled, remaining, fill_percentage(), timestamp.c_str());
+        return std::string(buf);
+    }
+};
+
+/// @brief User's executed trade
+/// 
+/// Represents a trade that was executed for the user's account.
+struct OwnTrade {
+    std::string trade_id;      ///< Unique trade identifier
+    std::string order_id;      ///< Associated order ID
+    std::string symbol;        ///< Trading pair (e.g., "BTC/USD")
+    Side side = Side::Buy;     ///< Buy or sell side
+    double price = 0.0;        ///< Execution price
+    double quantity = 0.0;     ///< Trade quantity
+    double fee = 0.0;          ///< Trading fee
+    std::string fee_currency;  ///< Currency of the fee
+    std::string timestamp;     ///< Trade timestamp
+    
+    /// @brief Get trade value (price × quantity)
+    /// @return Total trade value
+    double value() const { return price * quantity; }
+    
+    /// @brief Get net value (value - fee)
+    /// @return Net trade value after fees
+    double net_value() const { return value() - fee; }
+    
+    /// @brief Convert to JSON string for web integration
+    /// @return JSON representation of the trade
+    std::string to_json() const {
+        char buf[512];
+        const char* side_str = (side == Side::Buy) ? "buy" : "sell";
+        snprintf(buf, sizeof(buf),
+            R"({"trade_id":"%s","order_id":"%s","symbol":"%s","side":"%s","price":%.8f,"quantity":%.8f,"value":%.2f,"fee":%.8f,"fee_currency":"%s","net_value":%.2f,"timestamp":"%s"})",
+            trade_id.c_str(), order_id.c_str(), symbol.c_str(), side_str,
+            price, quantity, value(), fee, fee_currency.c_str(), net_value(), timestamp.c_str());
+        return std::string(buf);
+    }
+};
+
+/// @brief Account balance for a currency
+/// 
+/// Represents the balance of a specific currency in the user's account.
+struct Balance {
+    std::string currency;      ///< Currency code (e.g., "BTC", "USD")
+    double available = 0.0;    ///< Available balance (can be used for trading)
+    double reserved = 0.0;     ///< Reserved balance (locked in orders)
+    double total = 0.0;        ///< Total balance (available + reserved)
+    
+    /// @brief Convert to JSON string for web integration
+    /// @return JSON representation of the balance
+    std::string to_json() const {
+        char buf[256];
+        snprintf(buf, sizeof(buf),
+            R"({"currency":"%s","available":%.8f,"reserved":%.8f,"total":%.8f})",
+            currency.c_str(), available, reserved, total);
+        return std::string(buf);
+    }
+};
+
 //------------------------------------------------------------------------------
 // Callback Types
 //------------------------------------------------------------------------------
@@ -283,6 +402,18 @@ using BookCallback = std::function<void(const std::string& symbol, const OrderBo
 /// @param ohlc The OHLC data
 using OHLCCallback = std::function<void(const OHLC&)>;
 
+/// @brief Callback for order updates (open orders)
+/// @param order The order data
+using OrderCallback = std::function<void(const Order&)>;
+
+/// @brief Callback for user's executed trades
+/// @param trade The trade data
+using OwnTradeCallback = std::function<void(const OwnTrade&)>;
+
+/// @brief Callback for balance updates
+/// @param balances Map of currency to balance
+using BalanceCallback = std::function<void(const std::unordered_map<std::string, Balance>&)>;
+
 //------------------------------------------------------------------------------
 // Utility Functions
 //------------------------------------------------------------------------------
@@ -292,11 +423,14 @@ using OHLCCallback = std::function<void(const OHLC&)>;
 /// @return String representation (e.g., "ticker", "trade")
 inline const char* to_string(Channel channel) {
     switch (channel) {
-        case Channel::Ticker: return "ticker";
-        case Channel::Trade:  return "trade";
-        case Channel::Book:   return "book";
-        case Channel::OHLC:   return "ohlc";
-        default:              return "unknown";
+        case Channel::Ticker:     return "ticker";
+        case Channel::Trade:       return "trade";
+        case Channel::Book:        return "book";
+        case Channel::OHLC:        return "ohlc";
+        case Channel::OwnTrades:   return "ownTrades";
+        case Channel::OpenOrders:  return "openOrders";
+        case Channel::Balances:    return "balances";
+        default:                    return "unknown";
     }
 }
 

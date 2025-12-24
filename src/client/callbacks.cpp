@@ -27,6 +27,21 @@ void KrakenClient::Impl::on_ohlc(OHLCCallback callback) {
     ohlc_callback_ = std::move(callback);
 }
 
+void KrakenClient::Impl::on_order(OrderCallback callback) {
+    std::unique_lock lock(callbacks_mutex_);
+    order_callback_ = std::move(callback);
+}
+
+void KrakenClient::Impl::on_own_trade(OwnTradeCallback callback) {
+    std::unique_lock lock(callbacks_mutex_);
+    own_trade_callback_ = std::move(callback);
+}
+
+void KrakenClient::Impl::on_balance(BalanceCallback callback) {
+    std::unique_lock lock(callbacks_mutex_);
+    balance_callback_ = std::move(callback);
+}
+
 void KrakenClient::Impl::on_error(ErrorCallback callback) {
     std::unique_lock lock(callbacks_mutex_);
     error_callback_ = std::move(callback);

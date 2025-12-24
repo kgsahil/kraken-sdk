@@ -143,6 +143,77 @@ OHLC parse_ohlc(const rapidjson::Value& data, const std::string& symbol) {
     return ohlc;
 }
 
+// Parse order (private channel)
+Order parse_order(const rapidjson::Value& data) {
+    Order order;
+    order.order_id = get_string(data, "order_id");
+    order.symbol = get_string(data, "symbol");
+    order.price = get_double(data, "price");
+    order.quantity = get_double(data, "qty");
+    order.filled = get_double(data, "filled", 0.0);
+    order.remaining = get_double(data, "remaining", order.quantity);
+    order.timestamp = get_string(data, "timestamp");
+    order.userref = get_string(data, "userref");
+    
+    std::string side_str = get_string(data, "side");
+    order.side = (side_str == "sell") ? Side::Sell : Side::Buy;
+    
+    std::string type_str = get_string(data, "type");
+    order.type = (type_str == "market") ? OrderType::Market : OrderType::Limit;
+    
+    std::string status_str = get_string(data, "status");
+    if (status_str == "pending") order.status = OrderStatus::Pending;
+    else if (status_str == "open") order.status = OrderStatus::Open;
+    else if (status_str == "closed") order.status = OrderStatus::Closed;
+    else if (status_str == "cancelled") order.status = OrderStatus::Cancelled;
+    else if (status_str == "expired") order.status = OrderStatus::Expired;
+    else order.status = OrderStatus::Open;
+    
+    return order;
+}
+
+// Parse own trade (private channel)
+OwnTrade parse_own_trade(const rapidjson::Value& data) {
+    OwnTrade trade;
+    trade.trade_id = get_string(data, "trade_id");
+    trade.order_id = get_string(data, "order_id");
+    trade.symbol = get_string(data, "symbol");
+    trade.price = get_double(data, "price");
+    trade.quantity = get_double(data, "qty");
+    trade.fee = get_double(data, "fee", 0.0);
+    trade.fee_currency = get_string(data, "fee_currency");
+    trade.timestamp = get_string(data, "timestamp");
+    
+    std::string side_str = get_string(data, "side");
+    trade.side = (side_str == "sell") ? Side::Sell : Side::Buy;
+    
+    return trade;
+}
+
+// Parse balances (private channel)
+std::unordered_map<std::string, Balance> parse_balances(const rapidjson::Value& data) {
+    std::unordered_map<std::string, Balance> balances;
+    
+    if (!data.IsObject()) return balances;
+    
+    for (auto it = data.MemberBegin(); it != data.MemberEnd(); ++it) {
+        if (!it->name.IsString() || !it->value.IsObject()) continue;
+        
+        std::string currency = it->name.GetString();
+        const auto& bal_obj = it->value;
+        
+        Balance balance;
+        balance.currency = currency;
+        balance.available = get_double(bal_obj, "available", 0.0);
+        balance.reserved = get_double(bal_obj, "reserved", 0.0);
+        balance.total = balance.available + balance.reserved;
+        
+        balances[currency] = balance;
+    }
+    
+    return balances;
+}
+
 } // namespace
 
 Message parse_message(const std::string& raw_json) {
@@ -263,6 +334,28 @@ Message parse_message(const std::string& raw_json) {
         msg.type = MessageType::OHLC;
         msg.data = parse_ohlc(data, symbol);
     }
+    else if (channel == "openOrders") {
+        // Private channel: open orders
+        msg.type = MessageType::Order;
+        msg.data = parse_order(data);
+    }
+    else if (channel == "ownTrades") {
+        // Private channel: own trades
+        msg.type = MessageType::OwnTrade;
+        msg.data = parse_own_trade(data);
+    }
+    else if (channel == "balances") {
+        // Private channel: balances (data is the balances object directly)
+        msg.type = MessageType::Balance;
+        if (data.IsObject()) {
+            msg.data = parse_balances(data);
+        } else {
+            // If data is not an object, try parsing from root
+            if (doc.HasMember("data") && doc["data"].IsObject()) {
+                msg.data = parse_balances(doc["data"]);
+            }
+        }
+    }
     
     return msg;
 }
@@ -285,12 +378,19 @@ namespace {
         writer.Key("channel");
         writer.String(to_string(channel));
         
-        writer.Key("symbol");
-        writer.StartArray();
-        for (const auto& sym : symbols) {
-            writer.String(sym.c_str());
+        // Private channels (ownTrades, openOrders, balances) don't need symbols
+        bool is_private = (channel == Channel::OwnTrades || 
+                          channel == Channel::OpenOrders || 
+                          channel == Channel::Balances);
+        
+        if (!is_private && !symbols.empty()) {
+            writer.Key("symbol");
+            writer.StartArray();
+            for (const auto& sym : symbols) {
+                writer.String(sym.c_str());
+            }
+            writer.EndArray();
         }
-        writer.EndArray();
         
         // Add depth for book channel (subscribe only)
         if (std::strcmp(method, "subscribe") == 0 && channel == Channel::Book && depth > 0) {
