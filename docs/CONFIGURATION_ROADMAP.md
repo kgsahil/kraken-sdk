@@ -98,15 +98,18 @@ This document lists additional configuration options that could be added to the 
 
 ---
 
-### Circuit Breaker (Future Feature)
+### Circuit Breaker ✅ **IMPLEMENTED**
 | Variable | Description | Use Case |
 |----------|-------------|----------|
 | `CIRCUIT_BREAKER_ENABLED` | Enable circuit breaker | Prevent cascading failures |
-| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Failure threshold | Trigger open state |
-| `CIRCUIT_BREAKER_SUCCESS_THRESHOLD` | Success threshold | Trigger close state |
-| `CIRCUIT_BREAKER_TIMEOUT_MS` | Half-open timeout | Recovery testing interval |
+| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Failure threshold | Trigger open state (default: 5) |
+| `CIRCUIT_BREAKER_SUCCESS_THRESHOLD` | Success threshold | Trigger close state (default: 2) |
+| `CIRCUIT_BREAKER_OPEN_TIMEOUT_SEC` | Open state timeout (seconds) | Wait before attempting recovery (default: 30) |
+| `CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_SEC` | Half-open timeout (seconds) | Recovery testing interval (default: 5) |
 
-**Priority:** Medium - Enterprise resilience
+**Status:** ✅ Complete - Implemented in `include/kraken/connection/circuit_breaker.hpp`
+
+**See:** [ENVIRONMENT_VARIABLES.md](ENVIRONMENT_VARIABLES.md#circuit-breaker) for complete documentation
 
 ---
 

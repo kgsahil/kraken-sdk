@@ -42,6 +42,13 @@ export SPSC_QUEUE_SIZE="131072"
 
 **Note:** If both `KRAKEN_API_KEY` and `KRAKEN_API_SECRET` are set, the SDK will automatically authenticate. If either is missing, the SDK runs in public mode.
 
+**Private Channels:** When authenticated, you can subscribe to private channels:
+- `subscribe_own_trades()` - Your executed trades
+- `subscribe_open_orders()` - Your open orders
+- `subscribe_balances()` - Account balances
+
+See [README.md](../README.md#-security--authentication) for usage examples.
+
 ---
 
 ### WebSocket Connection
@@ -189,6 +196,36 @@ export SPSC_QUEUE_SIZE="131072"
 export RATE_LIMIT_ENABLED="true"
 export RATE_LIMIT_REQUESTS_PER_SEC="10.0"
 export RATE_LIMIT_BURST_SIZE="20"
+```
+
+---
+
+### Circuit Breaker
+
+| Variable | Description | Default | Example |
+|----------|-------------|---------|---------|
+| `CIRCUIT_BREAKER_ENABLED` | Enable/disable circuit breaker | `true` | `CIRCUIT_BREAKER_ENABLED="true"` |
+| `CIRCUIT_BREAKER_FAILURE_THRESHOLD` | Number of failures before opening circuit | `5` | `CIRCUIT_BREAKER_FAILURE_THRESHOLD="5"` |
+| `CIRCUIT_BREAKER_SUCCESS_THRESHOLD` | Number of successes in half-open to close circuit | `2` | `CIRCUIT_BREAKER_SUCCESS_THRESHOLD="2"` |
+| `CIRCUIT_BREAKER_OPEN_TIMEOUT_SEC` | Time in open state before attempting half-open (seconds) | `30` | `CIRCUIT_BREAKER_OPEN_TIMEOUT_SEC="30"` |
+| `CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_SEC` | Time to test recovery in half-open state (seconds) | `5` | `CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_SEC="5"` |
+
+**Circuit Breaker Notes:**
+- Prevents cascading failures by automatically opening the circuit after repeated connection failures
+- Three states: **Closed** (normal operation), **Open** (rejecting requests), **HalfOpen** (testing recovery)
+- When circuit is open, reconnection attempts are blocked until timeout expires
+- In half-open state, limited reconnection attempts are allowed to test if service has recovered
+- If successful in half-open, circuit closes; if failed, circuit reopens
+- Enabled by default for production resilience
+
+**Example Configuration:**
+```bash
+# Configure circuit breaker: open after 5 failures, close after 2 successes
+export CIRCUIT_BREAKER_ENABLED="true"
+export CIRCUIT_BREAKER_FAILURE_THRESHOLD="5"
+export CIRCUIT_BREAKER_SUCCESS_THRESHOLD="2"
+export CIRCUIT_BREAKER_OPEN_TIMEOUT_SEC="30"
+export CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_SEC="5"
 ```
 
 ---
