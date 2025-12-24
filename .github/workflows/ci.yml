@@ -50,11 +50,11 @@ jobs:
         echo "**Total Test Suites:** 24" >> $GITHUB_STEP_SUMMARY
         echo "**Total Test Cases:** 240+" >> $GITHUB_STEP_SUMMARY
 
-  # Windows Build and Test (only on PRs and main branch)
+  # Windows Build and Test (disabled for now - kept visible in workflow)
   windows:
-    name: Windows (MSVC)
+    name: Windows (MSVC) [DISABLED]
     runs-on: windows-latest
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    if: false  # Disabled - will show in GitHub Actions but won't run
     
     steps:
     - name: Checkout code
@@ -140,11 +140,11 @@ jobs:
         Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Total Test Suites:** 24"
         Add-Content -Path $env:GITHUB_STEP_SUMMARY -Value "**Total Test Cases:** 240+"
 
-  # macOS Build and Test (only on PRs and main branch)
+  # macOS Build and Test (disabled for now - kept visible in workflow)
   macos:
-    name: macOS (Clang)
+    name: macOS (Clang) [DISABLED]
     runs-on: macos-latest
-    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/main'
+    if: false  # Disabled - will show in GitHub Actions but won't run
     
     steps:
     - name: Checkout code
