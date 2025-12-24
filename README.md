@@ -53,8 +53,9 @@ client.add_alert(alert, [](const kraken::Alert& a) {
 - `SpreadAlert` - Spread monitoring and alerts
 - `CompositeStrategy` - Combine strategies with AND/OR logic
 - `StrategyPresets` - Ready-to-use patterns (breakout, support/resistance)
+- **Multi-Data Source** - Strategies can monitor Ticker, OrderBook, Trade, and OHLC data
 - **Configuration Support** - Create strategies from config files/env vars via `StrategyConfig`
-- **Runtime Control** - Enable/disable strategies dynamically
+- **Runtime Control** - Enable/disable strategies dynamically without removal
 - **Extensible** - Custom strategies via `AlertStrategy` base class
 
 ### 🔒 **Data Integrity & Reliability**
@@ -78,8 +79,8 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
 ```
 
 ### ⚡ **High-Performance Architecture**
-- **Lock-Free SPSC Queue** - Zero-contention message passing (88M ops/sec)
-- **Two-Thread Reactor Pattern** - I/O never blocks callbacks
+- **Optional Lock-Free SPSC Queue** - Zero-contention message passing (88M ops/sec) when enabled, or direct dispatch for minimal latency
+- **Flexible Threading Model** - Two-thread reactor (with queue) or single-thread direct mode (without queue)
 - **Atomic Metrics** - Lock-free performance counters
 - **Zero-Copy JSON Parsing** - RapidJSON for minimal allocations
 - **O(log n) Order Book Updates** - `std::map` for efficient price level management
@@ -143,17 +144,22 @@ std::cout << "⏱️  Uptime: " << metrics.uptime_string() << std::endl;
 │   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐       │
 │   │   WebSocket  │     │  Lock-Free   │     │  Dispatcher  │       │
 │   │   I/O Thread │────▶│  SPSC Queue  │────▶│    Thread    │       │
-│   │   (Producer) │     │ (88M ops/s)  │     │  (Consumer)  │       │
-│   └──────────────┘     └──────────────┘     └──────┬───────┘       │
+│   │   (Producer) │     │ (Optional)   │     │  (Consumer)  │       │
+│   │              │     │ 88M ops/s   │     │              │       │
+│   └──────┬───────┘     └──────────────┘     └──────┬───────┘       │
 │          │                                         │                │
+│          │ Direct Mode (queue disabled)            │                │
+│          └─────────────────────────────────────────┘                │
+│                                                                     │
 │          │              ┌───────────────────────────┼────────┐       │
 │          │              │                          ▼        │       │
 │          │              │   ┌──────────────┐  ┌────────────┐│       │
 │          ▼              │   │   Strategy   │  │    User    ││       │
 │   ┌──────────────┐      │   │    Engine    │  │  Callbacks ││       │
 │   │    Kraken    │      │   │ (Alerts)     │  │            ││       │
-│   │   Exchange   │      │   └──────────────┘  └────────────┘│       │
-│   └──────────────┘      │         Your Trading Logic         │       │
+│   │   Exchange   │      │   │ OHLC/Trades  │  │            ││       │
+│   └──────────────┘      │   └──────────────┘  └────────────┘│       │
+│                         │         Your Trading Logic         │       │
 │                         └───────────────────────────────────┘       │
 │                                                                     │
 │   ┌─────────────────────────────────────────────────────────┐     │
@@ -163,6 +169,10 @@ std::cout << "⏱️  Uptime: " << metrics.uptime_string() << std::endl;
 │   └─────────────────────────────────────────────────────────┘     │
 └────────────────────────────────────────────────────────────────────┘
 ```
+
+**Architecture Modes:**
+- **Queue Mode (Default)**: I/O thread → SPSC Queue → Dispatcher thread → Callbacks (I/O never blocks callbacks)
+- **Direct Mode**: I/O thread → Callbacks directly (minimal latency, single-threaded)
 
 ### Design Patterns
 
@@ -180,10 +190,11 @@ std::cout << "⏱️  Uptime: " << metrics.uptime_string() << std::endl;
 |-----------|------------|-----|
 | WebSocket | Boost.Beast | Industry-standard, TLS support |
 | JSON Parsing | RapidJSON | Zero-copy, fastest C++ JSON parser |
-| Message Queue | rigtorp/SPSCQueue | Lock-free, 88M ops/sec |
+| Message Queue | rigtorp/SPSCQueue | Lock-free, 88M ops/sec (optional) |
 | Order Book | `std::map` | O(log n) updates, efficient |
 | Metrics | `std::atomic` | Lock-free, zero contention |
 | Threading | `std::condition_variable` | Efficient wake-up, no spin-wait |
+| Architecture | Modular (core/strategies/telemetry/connection) | Clean separation, maintainable |
 
 ---
 
@@ -194,7 +205,7 @@ All benchmarks run in Release mode with Google Benchmark:
 | Operation | Latency | Throughput | Notes |
 |-----------|---------|------------|-------|
 | **JSON Parsing** | 1.5 - 2.2 μs | 320K+ msgs/sec | Zero-copy RapidJSON |
-| **Queue Push/Pop** | 11 - 12 ns | 85M+ ops/sec | Lock-free SPSC queue |
+| **Queue Push/Pop** | 11 - 12 ns | 85M+ ops/sec | Lock-free SPSC queue (optional) |
 | **Order Book Update** | 51 ns | 19M updates/sec | Single price level |
 | **Checksum Calculation** | 24 μs | 41K checksums/sec | CRC32 validation |
 | **End-to-End Latency** | < 1 ms | - | I/O → Queue → Callback |
@@ -238,8 +249,8 @@ make -j$(nproc)
 ```bash
 export KRAKEN_API_KEY="your-api-key"
 export KRAKEN_API_SECRET="your-api-secret"
-export ENABLE_SPSC_QUEUE="true"
-export SPSC_QUEUE_SIZE="131072"
+export ENABLE_SPSC_QUEUE="true"  # Set to "false" for direct mode (single-threaded)
+export SPSC_QUEUE_SIZE="131072"  # Only used if ENABLE_SPSC_QUEUE="true"
 export WS_CONN_RETRY_DELAY_MS="1000"
 export WS_CONN_RETRY_MULTIPLIER="2.0"
 export WS_CONN_RETRY_TIMES="10"
@@ -272,7 +283,8 @@ auto config = kraken::ClientConfig::Builder()
     .url("wss://ws.kraken.com/v2")
     .api_key("your-key")
     .api_secret("your-secret")
-    .queue_capacity(131072)
+    .use_queue(true)  // Set to false for direct mode (single-threaded, minimal latency)
+    .queue_capacity(131072)  // Only used if use_queue() is true
     .validate_checksums(true)
     .backoff(kraken::ExponentialBackoff::Builder()
         .initial_delay(std::chrono::milliseconds(100))
@@ -331,7 +343,7 @@ class KrakenClient {
     void on_ticker(TickerCallback);
     void on_trade(TradeCallback);
     void on_book(BookCallback);
-    void on_ohlc(OHLCCallback);
+    void on_ohlc(OHLCCallback);  // OHLC/candle data support
     void on_error(ErrorCallback);
     void on_connection_state(ConnectionStateCallback);
     
@@ -436,24 +448,63 @@ Total Test time (real) = 25.00 sec
 
 ```
 kraken-sdk/
-├── include/kraken/    # Public API headers (fully documented)
-│   ├── kraken.hpp     # Main include
-│   ├── client.hpp     # KrakenClient
-│   ├── config.hpp     # ClientConfig & Builder
-│   ├── types.hpp      # Data types & callbacks
-│   ├── strategies.hpp # Alert strategies & presets
-│   ├── strategy_config.hpp # Strategy configuration from files/env vars
-│   ├── backoff.hpp    # Reconnection strategies
-│   ├── gap_detector.hpp  # Gap detection
-│   ├── telemetry.hpp  # OpenTelemetry
-│   └── ...
-├── src/               # Implementation (PIMPL)
-│   ├── internal/      # Private headers
-│   └── *.cpp          # Implementation files
-├── examples/          # 8 practical examples
-├── tests/             # 25 test suites (260+ test cases including stress tests)
-├── benchmarks/        # Performance benchmarks
-└── docs/              # Comprehensive documentation
+├── include/kraken/           # Public API headers (fully documented)
+│   ├── kraken.hpp            # Main include
+│   ├── core/                 # Core SDK functionality
+│   │   ├── client.hpp        # KrakenClient
+│   │   ├── config.hpp        # ClientConfig & Builder
+│   │   ├── types.hpp         # Data types & callbacks
+│   │   └── error.hpp         # Error handling
+│   ├── strategies/           # Trading strategy engine (modular)
+│   │   ├── strategies.hpp    # Main include (all strategies)
+│   │   ├── base.hpp          # AlertStrategy base class
+│   │   ├── price_alert.hpp   # PriceAlert strategy
+│   │   ├── volume_spike.hpp  # VolumeSpike strategy
+│   │   ├── spread_alert.hpp  # SpreadAlert strategy
+│   │   ├── composite.hpp      # CompositeStrategy (AND/OR)
+│   │   ├── presets.hpp       # StrategyPresets
+│   │   └── strategy_config.hpp # Strategy configuration
+│   ├── telemetry/            # Observability (modular)
+│   │   ├── telemetry.hpp     # Main Telemetry class
+│   │   ├── config.hpp        # TelemetryConfig
+│   │   ├── metrics_collector.hpp # MetricsCollector
+│   │   ├── prometheus_server.hpp # Prometheus HTTP server
+│   │   └── otlp_exporter.hpp # OTLP HTTP exporter
+│   ├── connection/           # Connection management
+│   │   ├── backoff.hpp       # Reconnection strategies
+│   │   ├── gap_detector.hpp  # Gap detection
+│   │   └── connection_config.hpp # Connection config
+│   ├── subscription.hpp      # Subscription handle
+│   ├── metrics.hpp           # Runtime metrics
+│   └── ... 
+├── src/                      # Implementation (PIMPL)
+│   ├── core/                 # Core implementation
+│   │   ├── client.cpp        # Client implementation
+│   │   └── config.cpp        # Config implementation
+│   ├── strategies/           # Strategy implementations
+│   │   └── strategy_config.cpp
+│   ├── telemetry/            # Telemetry implementations
+│   │   ├── telemetry.cpp
+│   │   ├── metrics_collector.cpp
+│   │   ├── prometheus_server.cpp
+│   │   └── otlp_exporter.cpp
+│   ├── connection/           # Connection implementations
+│   │   └── connection.cpp
+│   ├── client/               # Client module implementations
+│   │   ├── lifecycle.cpp     # Construction, connection, event loop
+│   │   ├── callbacks.cpp     # Callback registration
+│   │   ├── subscriptions.cpp # Subscription management
+│   │   ├── strategies.cpp    # Strategy management
+│   │   ├── dispatch.cpp     # Message dispatch
+│   │   ├── reconnect.cpp    # Reconnection logic
+│   │   ├── snapshots.cpp    # Data snapshots
+│   │   └── metrics.cpp      # Metrics collection
+│   ├── internal/             # Private headers
+│   └── *.cpp                 # Other implementations
+├── examples/                 # 8 practical examples
+├── tests/                    # 25 test suites (260+ test cases)
+├── benchmarks/              # Performance benchmarks
+└── docs/                     # Comprehensive documentation
 ```
 
 ---
