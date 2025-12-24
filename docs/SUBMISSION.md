@@ -116,7 +116,7 @@ See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) for detailed results.
 ## 📚 Documentation
 
 - **Comprehensive Doxygen API Documentation** - Every public API documented
-- **8 Practical Examples** - From quickstart to trading bots
+- **9 Practical Examples** - From quickstart to trading bots
 - **Configuration Guides** - Environment variables, config files, builder pattern
 - **Performance Benchmarks** - Detailed benchmark results
 - **Architecture Documentation** - Design decisions and patterns
@@ -175,7 +175,7 @@ make -j$(nproc)
 ### ✅ **Developer Experience**
 - **Comprehensive documentation** - Doxygen API docs, examples, guides
 - **Multiple configuration methods** - Environment vars, config files, builder
-- **8 practical examples** - From quickstart to production applications
+- **9 practical examples** - From quickstart to production applications
 
 ---
 

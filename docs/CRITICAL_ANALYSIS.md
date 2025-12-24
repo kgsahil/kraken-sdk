@@ -308,7 +308,7 @@
 
 ### 4. **Developer Experience** ✅
 - ✅ Complete API documentation (Doxygen)
-- ✅ 8 practical examples (from quickstart to trading bots)
+- ✅ 9 practical examples (from quickstart to trading bots)
 - ✅ Multiple configuration methods (env vars, config files, builder)
 - ✅ Clear documentation and guides
 

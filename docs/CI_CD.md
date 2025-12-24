@@ -18,21 +18,21 @@ The Kraken SDK uses GitHub Actions for continuous integration and continuous dep
 - **Platform:** Ubuntu Latest
 - **Compiler:** GCC (default)
 - **Build Type:** Release
-- **Tests:** All 24 GoogleTest suites (240+ test cases)
+- **Tests:** All 25 GoogleTest suites (328 test cases)
 - **Parallel Execution:** Uses all CPU cores (`nproc`)
 
 ### 2. Windows Build and Test
 - **Platform:** Windows Latest
 - **Compiler:** MSVC
 - **Build Type:** Release
-- **Tests:** All 24 GoogleTest suites (240+ test cases)
+- **Tests:** All 25 GoogleTest suites (328 test cases)
 - **Dependencies:** Installed via Chocolatey (CMake, Boost, OpenSSL)
 
 ### 3. macOS Build and Test
 - **Platform:** macOS Latest
 - **Compiler:** Clang
 - **Build Type:** Release
-- **Tests:** All 24 GoogleTest suites (240+ test cases)
+- **Tests:** All 25 GoogleTest suites (328 test cases)
 - **Dependencies:** Installed via Homebrew (CMake, Boost, OpenSSL)
 
 ### 4. Code Quality Checks
@@ -82,7 +82,7 @@ ctest --output-on-failure --verbose -j$(nproc)
 23. `test_connection_config` - Connection timeout and security config tests
 24. `test_stress_failure` - Stress and failure injection tests (40+ cases)
 
-**Total Test Cases:** 240+
+**Total Test Cases:** 328
 
 ### Test Failure Handling
 
