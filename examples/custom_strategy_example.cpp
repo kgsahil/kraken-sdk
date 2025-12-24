@@ -11,6 +11,7 @@
 #include "common.hpp"
 #include <iostream>
 #include <iomanip>
+#include <vector>
 
 using namespace kraken;
 
@@ -87,6 +88,11 @@ public:
     std::string get_alert_message(const Ticker& ticker) const override {
         return "Extreme order book imbalance detected";
     }
+    
+    // Must implement pure virtual check(Ticker) even if not used
+    bool check(const Ticker& ticker) override {
+        return false; // This strategy only uses OrderBook
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -131,6 +137,11 @@ public:
             ticker.last, price_threshold_);
         return std::string(buf);
     }
+    
+    // Must implement pure virtual check(Ticker) even if not used
+    bool check(const Ticker& ticker) override {
+        return false; // This strategy uses multi-source check
+    }
 };
 
 //------------------------------------------------------------------------------
@@ -170,8 +181,8 @@ int main(int argc, char* argv[]) {
     });
     
     // Subscribe to ticker and order book
-    client.subscribe("BTC/USD");
-    client.subscribe_book("BTC/USD", 10);
+    client.subscribe(Channel::Ticker, {"BTC/USD"});
+    client.subscribe_book({"BTC/USD"}, 10);
     
     std::cout << "Monitoring BTC/USD with custom strategies..." << std::endl;
     std::cout << "Press Ctrl+C to stop\n" << std::endl;

@@ -176,6 +176,7 @@ if(KRAKEN_BUILD_EXAMPLES)
 
     add_example(quickstart)
     add_example(strategies)
+    add_example(custom_strategy_example)
     add_example(dashboard)
     add_example(orderbook)
     add_example(telemetry)
