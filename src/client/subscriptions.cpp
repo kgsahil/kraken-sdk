@@ -10,12 +10,10 @@ namespace kraken {
 namespace {
     bool symbols_valid(const std::vector<std::string>& symbols) {
         constexpr size_t kMaxSymbolLen = 256;
-        for (const auto& sym : symbols) {
-            if (sym.empty() || sym.size() > kMaxSymbolLen) {
-                return false;
-            }
-        }
-        return true;
+        return std::all_of(symbols.begin(), symbols.end(),
+            [](const std::string& sym) {
+                return !sym.empty() && sym.size() <= kMaxSymbolLen;
+            });
     }
 } // namespace
 

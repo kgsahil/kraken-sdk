@@ -94,7 +94,7 @@ std::vector<PriceLevel> parse_levels(const rapidjson::Value& arr) {
     if (!arr.IsArray()) return levels;
     
     levels.reserve(arr.Size());
-    for (auto& item : arr.GetArray()) {
+    for (const auto& item : arr.GetArray()) {
         if (item.IsObject()) {
             PriceLevel level;
             level.price = get_double(item, "price");
@@ -265,17 +265,19 @@ Message parse_message(const std::string& raw_json) {
                               [](unsigned char c) { return std::tolower(c); });
                 
                 // Check for authentication errors
-                if (error_lower.find("auth") != std::string::npos ||
+                const bool has_auth_keyword = (error_lower.find("auth") != std::string::npos ||
                     error_lower.find("unauthorized") != std::string::npos ||
-                    error_lower.find("invalid token") != std::string::npos ||
-                    error_lower.find("token") != std::string::npos && 
-                    (error_lower.find("invalid") != std::string::npos || 
-                     error_lower.find("expired") != std::string::npos ||
-                     error_lower.find("missing") != std::string::npos) ||
                     error_lower.find("api key") != std::string::npos ||
-                    error_lower.find("api secret") != std::string::npos ||
-                    error_lower.find("401") != std::string::npos ||
-                    error_lower.find("403") != std::string::npos) {
+                    error_lower.find("api secret") != std::string::npos);
+                const bool has_token_issue = (error_lower.find("invalid token") != std::string::npos ||
+                    (error_lower.find("token") != std::string::npos && 
+                     (error_lower.find("invalid") != std::string::npos || 
+                      error_lower.find("expired") != std::string::npos ||
+                      error_lower.find("missing") != std::string::npos)));
+                const bool has_auth_status = (error_lower.find("401") != std::string::npos ||
+                    error_lower.find("403") != std::string::npos);
+                
+                if (has_auth_keyword || has_token_issue || has_auth_status) {
                     error_code = ErrorCode::AuthenticationFailed;
                 }
                 // Check for rate limit errors
