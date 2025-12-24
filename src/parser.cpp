@@ -255,16 +255,31 @@ Message parse_message(const std::string& raw_json) {
                 msg.data = (method == "subscribe") ? 
                     MessageData{SubscribedMsg{}} : MessageData{UnsubscribedMsg{}};
             } else {
-                // Check if error is rate limit related
+                // Check if error is rate limit or authentication related
                 std::string error_msg = get_string(doc, "error", "Subscription failed");
                 ErrorCode error_code = ErrorCode::InvalidSymbol;
                 
-                // Detect rate limit errors (case-insensitive)
+                // Detect error type (case-insensitive)
                 std::string error_lower = error_msg;
                 std::transform(error_lower.begin(), error_lower.end(), error_lower.begin(),
                               [](unsigned char c) { return std::tolower(c); });
                 
-                if (error_lower.find("rate limit") != std::string::npos ||
+                // Check for authentication errors
+                if (error_lower.find("auth") != std::string::npos ||
+                    error_lower.find("unauthorized") != std::string::npos ||
+                    error_lower.find("invalid token") != std::string::npos ||
+                    error_lower.find("token") != std::string::npos && 
+                    (error_lower.find("invalid") != std::string::npos || 
+                     error_lower.find("expired") != std::string::npos ||
+                     error_lower.find("missing") != std::string::npos) ||
+                    error_lower.find("api key") != std::string::npos ||
+                    error_lower.find("api secret") != std::string::npos ||
+                    error_lower.find("401") != std::string::npos ||
+                    error_lower.find("403") != std::string::npos) {
+                    error_code = ErrorCode::AuthenticationFailed;
+                }
+                // Check for rate limit errors
+                else if (error_lower.find("rate limit") != std::string::npos ||
                     error_lower.find("ratelimit") != std::string::npos ||
                     error_lower.find("too many") != std::string::npos ||
                     error_lower.find("429") != std::string::npos) {

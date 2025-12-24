@@ -95,6 +95,14 @@ void KrakenClient::Impl::send_unsubscribe(Channel channel,
 }
 
 Subscription KrakenClient::Impl::subscribe_own_trades() {
+    // Check authentication before allowing subscription
+    if (!config_.is_authenticated()) {
+        throw AuthenticationError(
+            "API key and secret are required for private channels. "
+            "Use ClientConfig::Builder::api_key() and api_secret() to configure authentication."
+        );
+    }
+    
     int id = next_sub_id_++;
     
     // Private channels don't need symbols
@@ -118,6 +126,14 @@ Subscription KrakenClient::Impl::subscribe_own_trades() {
 }
 
 Subscription KrakenClient::Impl::subscribe_open_orders() {
+    // Check authentication before allowing subscription
+    if (!config_.is_authenticated()) {
+        throw AuthenticationError(
+            "API key and secret are required for private channels. "
+            "Use ClientConfig::Builder::api_key() and api_secret() to configure authentication."
+        );
+    }
+    
     int id = next_sub_id_++;
     
     auto impl = std::make_shared<SubscriptionImpl>(
@@ -140,6 +156,14 @@ Subscription KrakenClient::Impl::subscribe_open_orders() {
 }
 
 Subscription KrakenClient::Impl::subscribe_balances() {
+    // Check authentication before allowing subscription
+    if (!config_.is_authenticated()) {
+        throw AuthenticationError(
+            "API key and secret are required for private channels. "
+            "Use ClientConfig::Builder::api_key() and api_secret() to configure authentication."
+        );
+    }
+    
     int id = next_sub_id_++;
     
     auto impl = std::make_shared<SubscriptionImpl>(
