@@ -108,9 +108,47 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
 
 ### 🔐 **Security & Authentication**
 - **HMAC-SHA512 Authentication** - Secure API key/secret handling
+- **Private Channel Support** - Access your own trades, open orders, and account balances
 - **TLS/SSL Support** - Configurable certificate validation
 - **Connection Timeouts** - Configurable timeouts for all operations
 - **Security Configuration** - Custom CA certs, client certs, cipher suites
+
+**Private Channels (Requires Authentication):**
+```cpp
+// Configure authentication
+auto config = kraken::ClientConfig::Builder()
+    .api_key("your-api-key")
+    .api_secret("your-api-secret")
+    .build();
+
+kraken::KrakenClient client(config);
+
+// Subscribe to your own trades
+client.on_own_trade([](const kraken::OwnTrade& trade) {
+    std::cout << "Trade executed: " << trade.symbol 
+              << " @ $" << trade.price 
+              << " (qty: " << trade.quantity << ")" << std::endl;
+});
+client.subscribe_own_trades();
+
+// Subscribe to open orders
+client.on_order([](const kraken::Order& order) {
+    std::cout << "Order: " << order.symbol 
+              << " " << (order.side == kraken::Side::Buy ? "BUY" : "SELL")
+              << " " << order.quantity << " @ $" << order.price
+              << " (filled: " << order.fill_percentage() << "%)" << std::endl;
+});
+client.subscribe_open_orders();
+
+// Subscribe to account balances
+client.on_balance([](const std::unordered_map<std::string, kraken::Balance>& balances) {
+    for (const auto& [currency, balance] : balances) {
+        std::cout << currency << ": " << balance.available 
+                  << " available, " << balance.reserved << " reserved" << std::endl;
+    }
+});
+client.subscribe_balances();
+```
 
 📖 **Learn more:** [Connection Configuration](docs/ENVIRONMENT_VARIABLES.md#connection-settings) | [Security Settings](docs/ENVIRONMENT_VARIABLES.md#security-settings)
 
@@ -246,6 +284,11 @@ export SPSC_QUEUE_SIZE="131072"  # Only used if ENABLE_SPSC_QUEUE="true"
 export WS_CONN_RETRY_DELAY_MS="1000"
 export WS_CONN_RETRY_MULTIPLIER="2.0"
 export WS_CONN_RETRY_TIMES="10"
+export CIRCUIT_BREAKER_ENABLED="true"
+export CIRCUIT_BREAKER_FAILURE_THRESHOLD="5"
+export CIRCUIT_BREAKER_SUCCESS_THRESHOLD="2"
+export CIRCUIT_BREAKER_OPEN_TIMEOUT_SEC="30"
+export CIRCUIT_BREAKER_HALF_OPEN_TIMEOUT_SEC="5"
 export ENABLE_TELEMETRY="true"
 export TELEMETRY_HTTP_SERVER="true"
 export TELEMETRY_HTTP_PORT="9090"
@@ -284,6 +327,9 @@ auto config = kraken::ClientConfig::Builder()
         .max_attempts(20)
         .jitter_factor(0.2)
         .build())
+    .circuit_breaker(true, 5, 2,  // enabled, failure_threshold=5, success_threshold=2
+                     std::chrono::seconds(30),  // open_state_timeout
+                     std::chrono::seconds(5))   // half_open_timeout
     .gap_detection(true)
     .on_gap([](const kraken::GapInfo& gap) {
         std::cerr << "⚠️ Gap detected: " << gap.gap_size << " messages" << std::endl;
@@ -292,6 +338,25 @@ auto config = kraken::ClientConfig::Builder()
         .enable_http_server(true)
         .http_server_port(9090)
         .build())
+    .build();
+```
+
+**Circuit Breaker Configuration:**
+The circuit breaker prevents cascading failures by automatically opening the circuit after repeated connection failures. It has three states:
+- **Closed** - Normal operation, requests allowed
+- **Open** - Service failing, requests rejected immediately
+- **HalfOpen** - Testing recovery, limited requests allowed
+
+```cpp
+// Configure circuit breaker
+auto config = kraken::ClientConfig::Builder()
+    .circuit_breaker(
+        true,                           // enabled
+        5,                              // failure_threshold (open after 5 failures)
+        2,                              // success_threshold (close after 2 successes in half-open)
+        std::chrono::seconds(30),       // open_state_timeout (wait 30s before trying half-open)
+        std::chrono::seconds(5)         // half_open_timeout (test for 5s in half-open state)
+    )
     .build();
 ```
 
