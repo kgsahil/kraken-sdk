@@ -17,6 +17,19 @@ void KrakenClient::Impl::handle_reconnect() {
     }
     
     while (!stop_requested_) {
+        // Check circuit breaker before attempting reconnection
+        if (circuit_breaker_ && !circuit_breaker_->can_attempt()) {
+            // Circuit is open - wait for timeout before trying again
+            safe_invoke_error_callback(
+                ErrorCode::ConnectionFailed,
+                "Circuit breaker is open - connection failures exceeded threshold",
+                ""
+            );
+            // Wait for circuit breaker timeout
+            std::this_thread::sleep_for(circuit_breaker_->config().timeout_ms);
+            continue;
+        }
+        
         // Check if we should stop retrying
         if (backoff_strategy_ && backoff_strategy_->should_stop()) {
             break;
@@ -67,6 +80,11 @@ void KrakenClient::Impl::handle_reconnect() {
             connection_->connect();
             set_connection_state(ConnectionState::Connected);
             
+            // Record success in circuit breaker
+            if (circuit_breaker_) {
+                circuit_breaker_->record_success();
+            }
+            
             // Reset backoff on successful connection
             if (backoff_strategy_) {
                 backoff_strategy_->reset();
@@ -86,6 +104,11 @@ void KrakenClient::Impl::handle_reconnect() {
             
             return;
         } catch (const std::exception& e) {
+            // Record failure in circuit breaker
+            if (circuit_breaker_) {
+                circuit_breaker_->record_failure();
+            }
+            
             // Log and continue with backoff
             safe_invoke_error_callback(
                 ErrorCode::ConnectionFailed,

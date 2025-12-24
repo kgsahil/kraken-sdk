@@ -93,6 +93,7 @@ add_library(kraken STATIC
     src/core/client.cpp
     src/client_impl.cpp
     src/connection/connection.cpp
+    src/connection/circuit_breaker.cpp
     src/parser.cpp
     src/book_engine.cpp
     src/strategy_engine.cpp

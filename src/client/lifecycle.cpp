@@ -24,6 +24,9 @@ KrakenClient::Impl::Impl(ClientConfig config)
     , queue_(config_.use_queue() ? create_queue(config_) : nullptr)
     , start_time_(std::chrono::steady_clock::now())
     , backoff_strategy_(config_.backoff_strategy())
+    , circuit_breaker_(config_.circuit_breaker_enabled() 
+        ? std::make_unique<CircuitBreaker>(config_.circuit_breaker_config())
+        : nullptr)
     , gap_tracker_(config_.gap_detection_config()) {
     
     // Set up gap callback - combine user callback with telemetry

@@ -86,6 +86,16 @@ ClientConfig::Builder& ClientConfig::Builder::rate_limiting(bool enabled, double
     return *this;
 }
 
+ClientConfig::Builder& ClientConfig::Builder::circuit_breaker(bool enabled) {
+    config_.circuit_breaker_enabled_ = enabled;
+    return *this;
+}
+
+ClientConfig::Builder& ClientConfig::Builder::circuit_breaker_config(CircuitBreakerConfig config) {
+    config_.circuit_breaker_config_ = std::move(config);
+    return *this;
+}
+
 ClientConfig::Builder& ClientConfig::Builder::use_queue(bool enable) {
     config_.use_queue_ = enable;
     return *this;

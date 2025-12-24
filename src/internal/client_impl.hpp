@@ -16,6 +16,7 @@
 #include "kraken/metrics.hpp"
 #include "kraken/strategies/base.hpp"
 #include "kraken/telemetry/telemetry.hpp"
+#include "kraken/connection/circuit_breaker.hpp"
 
 #include "kraken/queue.hpp"
 
@@ -318,6 +319,9 @@ private:
     
     // Reconnection with exponential backoff
     std::unique_ptr<BackoffStrategy> backoff_strategy_;
+    
+    // Circuit breaker for connection resilience
+    std::unique_ptr<CircuitBreaker> circuit_breaker_;
     
     // Gap detection
     SequenceTracker gap_tracker_;

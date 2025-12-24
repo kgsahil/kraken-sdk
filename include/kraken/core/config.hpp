@@ -9,6 +9,7 @@
 
 #include "../connection/backoff.hpp"
 #include "../connection/gap_detector.hpp"
+#include "../connection/circuit_breaker.hpp"
 #include "../telemetry/telemetry.hpp"
 #include "../connection/connection_config.hpp"
 #include "../rate_limiter.hpp"
@@ -125,6 +126,14 @@ public:
     /// @return true if rate limiting is enabled
     bool rate_limiting_enabled() const { return rate_limiter_ != nullptr; }
     
+    /// @brief Get circuit breaker configuration
+    /// @return Circuit breaker config
+    const CircuitBreakerConfig& circuit_breaker_config() const { return circuit_breaker_config_; }
+    
+    /// @brief Check if circuit breaker is enabled
+    /// @return true if circuit breaker is enabled
+    bool circuit_breaker_enabled() const { return circuit_breaker_enabled_; }
+    
     // Legacy accessors (deprecated, for backward compatibility)
     [[deprecated("Use backoff_strategy() instead")]]
     int reconnect_attempts() const { 
@@ -159,6 +168,8 @@ private:
     ConnectionTimeouts connection_timeouts_;
     SecurityConfig security_config_;
     std::shared_ptr<RateLimiter> rate_limiter_;  // null if disabled
+    CircuitBreakerConfig circuit_breaker_config_;
+    bool circuit_breaker_enabled_ = true;  // Enabled by default
 };
 
 //------------------------------------------------------------------------------
@@ -266,6 +277,20 @@ public:
     /// @param burst_size Maximum burst capacity (default: 20)
     /// @return Reference to this builder
     Builder& rate_limiting(bool enabled, double requests_per_sec = 10.0, size_t burst_size = 20);
+    
+    /// @brief Enable/disable circuit breaker
+    /// 
+    /// When enabled, the circuit breaker prevents cascading failures by
+    /// automatically opening the circuit after repeated connection failures.
+    /// 
+    /// @param enabled true to enable circuit breaker (default: true)
+    /// @return Reference to this builder
+    Builder& circuit_breaker(bool enabled);
+    
+    /// @brief Set circuit breaker configuration
+    /// @param config Circuit breaker configuration
+    /// @return Reference to this builder
+    Builder& circuit_breaker_config(CircuitBreakerConfig config);
     
     // Legacy methods (deprecated, for backward compatibility)
     [[deprecated("Use backoff() instead")]]
