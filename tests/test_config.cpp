@@ -20,7 +20,7 @@ TEST_F(ConfigTest, DefaultConfig) {
     EXPECT_EQ(config.queue_capacity(), 65536);
     EXPECT_EQ(config.reconnect_attempts(), 10);
     EXPECT_TRUE(config.validate_checksums());
-    EXPECT_FALSE(config.is_authenticated());
+    // Authentication logic tested in test_authentication.cpp
 }
 
 // Test URL setting
