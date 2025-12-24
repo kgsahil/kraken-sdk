@@ -85,14 +85,13 @@ TEST_F(ConfigTest, SetValidateChecksums) {
     EXPECT_FALSE(config.validate_checksums());
 }
 
-// Test API key/secret
+// Test API key/secret (authentication logic tested in test_authentication.cpp)
 TEST_F(ConfigTest, SetAPIKey) {
     auto config = ClientConfig::Builder()
         .api_key("test_key")
         .build();
     
     EXPECT_EQ(config.api_key(), "test_key");
-    EXPECT_FALSE(config.is_authenticated()); // No secret
 }
 
 TEST_F(ConfigTest, SetAPISecret) {
@@ -101,16 +100,6 @@ TEST_F(ConfigTest, SetAPISecret) {
         .build();
     
     EXPECT_EQ(config.api_secret(), "test_secret");
-    EXPECT_FALSE(config.is_authenticated()); // No key
-}
-
-TEST_F(ConfigTest, AuthenticatedConfig) {
-    auto config = ClientConfig::Builder()
-        .api_key("test_key")
-        .api_secret("test_secret")
-        .build();
-    
-    EXPECT_TRUE(config.is_authenticated());
 }
 
 // Test fluent builder
