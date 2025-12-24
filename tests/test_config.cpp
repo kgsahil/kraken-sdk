@@ -118,7 +118,7 @@ TEST_F(ConfigTest, FluentBuilder) {
     EXPECT_EQ(config.queue_capacity(), 32768);
     EXPECT_EQ(config.reconnect_attempts(), 5);
     EXPECT_TRUE(config.validate_checksums());
-    EXPECT_TRUE(config.is_authenticated());
+    // Authentication logic tested in test_authentication.cpp
 }
 
 // Test multiple builds create independent configs
