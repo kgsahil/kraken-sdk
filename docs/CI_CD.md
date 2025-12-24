@@ -259,5 +259,4 @@ ctest --output-on-failure --verbose -j$(sysctl -n hw.ncpu)
 
 ---
 
-**Last Updated:** December 22, 2024
 
