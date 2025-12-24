@@ -4,10 +4,10 @@
 #include <rapidjson/writer.h>
 #include <rapidjson/stringbuffer.h>
 
-#include <stdexcept>
 #include <cstring>
 #include <algorithm>
 #include <cctype>
+#include <string>
 
 namespace kraken {
 

@@ -230,7 +230,7 @@ jobs:
           -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
     
     - name: Run clang-tidy
-      continue-on-error: true
+      continue-on-error: false
       id: clang-tidy
       run: |
         cd build
