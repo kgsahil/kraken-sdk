@@ -31,7 +31,9 @@ double get_double(const rapidjson::Value& obj, const char* key, double def = 0.0
         if (obj[key].IsString()) {
             try {
                 return std::stod(obj[key].GetString());
-            } catch (...) {}
+            } catch (...) {
+                // Ignore conversion errors, return default value
+            }
         }
     }
     return def;
