@@ -162,12 +162,20 @@ Order parse_order(const rapidjson::Value& data) {
     order.type = (type_str == "market") ? OrderType::Market : OrderType::Limit;
     
     std::string status_str = get_string(data, "status");
-    if (status_str == "pending") order.status = OrderStatus::Pending;
-    else if (status_str == "open") order.status = OrderStatus::Open;
-    else if (status_str == "closed") order.status = OrderStatus::Closed;
-    else if (status_str == "cancelled") order.status = OrderStatus::Cancelled;
-    else if (status_str == "expired") order.status = OrderStatus::Expired;
-    else order.status = OrderStatus::Open;
+    // NOLINTNEXTLINE(bugprone-branch-clone) - Simple string-to-enum mapping requires if-else chain
+    if (status_str == "pending") {
+        order.status = OrderStatus::Pending;
+    } else if (status_str == "open") {
+        order.status = OrderStatus::Open;
+    } else if (status_str == "closed") {
+        order.status = OrderStatus::Closed;
+    } else if (status_str == "cancelled") {
+        order.status = OrderStatus::Cancelled;
+    } else if (status_str == "expired") {
+        order.status = OrderStatus::Expired;
+    } else {
+        order.status = OrderStatus::Open;
+    }
     
     return order;
 }
