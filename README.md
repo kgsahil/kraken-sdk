@@ -130,7 +130,7 @@ std::cout << "⏱️  Uptime: " << metrics.uptime_string() << std::endl;
 - **Config File Support** - Load settings from `.cfg` files
 - **JSON Serialization** - All data types serialize for web integration
 - **Analytics Helpers** - Built-in spread, imbalance, liquidity calculations
-- **8 Practical Examples** - From quickstart to trading bots
+- **9 Practical Examples** - From quickstart to trading bots
 
 ---
 
@@ -427,7 +427,7 @@ ctest --output-on-failure
 
 **Latest Test Results:**
 ```
-100% tests passed, 0 tests failed out of 24
+100% tests passed, 0 tests failed out of 25
 Total Test time (real) = 25.00 sec
 ```
 
@@ -440,7 +440,7 @@ Total Test time (real) = 25.00 sec
 - ✅ **Stress & failure tests** (40+ tests for breaking scenarios)
 - ✅ **Advanced strategy tests** (composition, OHLC, presets, configuration, enable/disable)
 
-**100% test pass rate** - All 25 test suites verified and passing (260+ test cases including stress tests).
+**100% test pass rate** - All 25 test suites verified and passing (328 test cases including stress tests).
 
 ---
 
@@ -501,8 +501,8 @@ kraken-sdk/
 │   │   └── metrics.cpp      # Metrics collection
 │   ├── internal/             # Private headers
 │   └── *.cpp                 # Other implementations
-├── examples/                 # 8 practical examples
-├── tests/                    # 25 test suites (260+ test cases)
+├── examples/                 # 9 practical examples
+├── tests/                    # 25 test suites (328 test cases)
 ├── benchmarks/              # Performance benchmarks
 └── docs/                     # Comprehensive documentation
 ```
@@ -546,11 +546,11 @@ doxygen Doxyfile
 ### ✅ **Developer Experience**
 - **Comprehensive documentation** - Doxygen API docs, examples, guides
 - **Multiple configuration methods** - Environment vars, config files, builder
-- **8 practical examples** - From quickstart to production applications
+- **9 practical examples** - From quickstart to production applications
 - **Thread-safe API** - Safe concurrent access throughout
 
 ### ✅ **Production Ready**
-- **25 test suites** - Unit, integration, thread safety, edge cases, stress tests, advanced strategies (260+ test cases)
+- **25 test suites** - Unit, integration, thread safety, edge cases, stress tests, advanced strategies (328 test cases)
 - **100% test pass rate** - All critical paths tested and verified
 - **Exception safety** - RAII, proper error handling
 - **ABI stability** - PIMPL pattern for future compatibility
