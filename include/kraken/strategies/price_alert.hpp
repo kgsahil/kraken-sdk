@@ -9,6 +9,7 @@
 #include "base.hpp"
 #include <limits>
 #include <chrono>
+#include <string>
 
 namespace kraken {
 
@@ -115,11 +116,9 @@ public:
         // Check thresholds
         bool triggered = false;
         if (ticker.symbol == symbol_) {
-            if (above_ != std::numeric_limits<double>::max() && ticker.last >= above_) {
-                triggered = true;
-            } else if (below_ != std::numeric_limits<double>::lowest() && ticker.last <= below_) {
-                triggered = true;
-            }
+            const bool is_above_threshold = (above_ != std::numeric_limits<double>::max() && ticker.last >= above_);
+            const bool is_below_threshold = (below_ != std::numeric_limits<double>::lowest() && ticker.last <= below_);
+            triggered = is_above_threshold || is_below_threshold;
         }
         
         if (triggered) {
@@ -173,9 +172,12 @@ private:
     std::string build_message(const Ticker& ticker, double prev_price) const {
         std::string msg;
         
-        if (above_ != std::numeric_limits<double>::max() && ticker.last >= above_) {
+        const bool is_above = (above_ != std::numeric_limits<double>::max() && ticker.last >= above_);
+        const bool is_below = (below_ != std::numeric_limits<double>::lowest() && ticker.last <= below_);
+        
+        if (is_above) {
             msg = "Price above $" + std::to_string(above_) + " for " + ticker.symbol;
-        } else if (below_ != std::numeric_limits<double>::lowest() && ticker.last <= below_) {
+        } else if (is_below) {
             msg = "Price below $" + std::to_string(below_) + " for " + ticker.symbol;
         } else {
             msg = "Price alert: " + ticker.symbol + " = $" + std::to_string(ticker.last);

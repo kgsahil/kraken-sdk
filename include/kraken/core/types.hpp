@@ -21,7 +21,7 @@ namespace kraken {
 /// @brief Channel types for WebSocket subscription
 /// 
 /// Defines the available data channels that can be subscribed to.
-enum class Channel {
+enum class Channel : std::uint8_t {
     Ticker,      ///< Real-time ticker updates (bid, ask, last, volume)
     Trade,       ///< Trade execution updates
     Book,        ///< Order book updates (bids and asks)
@@ -32,13 +32,13 @@ enum class Channel {
 };
 
 /// @brief Order side (buy or sell)
-enum class Side {
+enum class Side : std::uint8_t {
     Buy,   ///< Buy order
     Sell   ///< Sell order
 };
 
 /// @brief Order type
-enum class OrderType {
+enum class OrderType : std::uint8_t {
     Market,  ///< Market order (execute immediately at current price)
     Limit    ///< Limit order (execute at specified price or better)
 };
@@ -46,7 +46,7 @@ enum class OrderType {
 /// @brief Error codes for SDK operations
 /// 
 /// Used in Error struct and exceptions to categorize failures.
-enum class ErrorCode {
+enum class ErrorCode : std::uint8_t {
     None = 0,                ///< No error
     ConnectionFailed,        ///< Failed to establish WebSocket connection
     ConnectionClosed,        ///< Connection closed unexpectedly
@@ -282,7 +282,7 @@ struct OHLC {
 };
 
 /// @brief Order status
-enum class OrderStatus {
+enum class OrderStatus : std::uint8_t {
     Pending,    ///< Order is pending
     Open,       ///< Order is open (active)
     Closed,     ///< Order is closed (filled or cancelled)
