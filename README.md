@@ -58,6 +58,8 @@ client.add_alert(alert, [](const kraken::Alert& a) {
 - **Runtime Control** - Enable/disable strategies dynamically without removal
 - **Extensible** - Custom strategies via `AlertStrategy` base class
 
+📖 **Learn more:** [Strategy Configuration Guide](docs/STRATEGY_CONFIGURATION.md) | [Strategy Flexibility Analysis](docs/STRATEGY_FLEXIBILITY_ANALYSIS.md)
+
 ### 🔒 **Data Integrity & Reliability**
 - **CRC32 Checksum Validation** - Detects corrupted order book data
 - **Message Gap Detection** - Tracks sequence numbers to identify missed messages
@@ -78,6 +80,8 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
 });
 ```
 
+📖 **Learn more:** [Connection Configuration](docs/ENVIRONMENT_VARIABLES.md#connection-settings) | [Enterprise Readiness](docs/ENTERPRISE_READINESS.md)
+
 ### ⚡ **High-Performance Architecture**
 - **Optional Lock-Free SPSC Queue** - Zero-contention message passing (88M ops/sec) when enabled, or direct dispatch for minimal latency
 - **Flexible Threading Model** - Two-thread reactor (with queue) or single-thread direct mode (without queue)
@@ -85,13 +89,7 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
 - **Zero-Copy JSON Parsing** - RapidJSON for minimal allocations
 - **O(log n) Order Book Updates** - `std::map` for efficient price level management
 
-**Benchmarked Performance (Release build):**
-| Operation | Latency | Throughput |
-|-----------|---------|-------------|
-| JSON Parsing | 1.8 - 3.1 μs | 320K+ msgs/sec |
-| Queue Push/Pop | 11 - 13 ns | 88M ops/sec |
-| Order Book Update | 51 ns | 19M updates/sec |
-| Checksum Calculation | 24 μs | 41K checksums/sec |
+📖 **Learn more:** [Performance Benchmarks](#-performance-benchmarks) | [Architecture Details](docs/REFACTORING_PLAN.md)
 
 ### 📊 **Enterprise Monitoring & Observability**
 - **Dual Metrics System:**
@@ -105,18 +103,15 @@ client.on_book([](const std::string& symbol, const kraken::OrderBook& book) {
   - Connection state tracking
   - Gap detection statistics
 
-```cpp
-auto metrics = client.get_metrics();
-std::cout << "📈 Messages/sec: " << metrics.messages_per_second() << std::endl;
-std::cout << "⚡ Max latency: " << metrics.latency_max_us.count() << " μs" << std::endl;
-std::cout << "⏱️  Uptime: " << metrics.uptime_string() << std::endl;
-```
+📖 **Learn more:** [OpenTelemetry Integration](docs/OTEL_STATUS.md) | [Metrics Guide](docs/METRICS.md) | [Telemetry Configuration](docs/ENVIRONMENT_VARIABLES.md#telemetry-settings)
 
 ### 🔐 **Security & Authentication**
 - **HMAC-SHA512 Authentication** - Secure API key/secret handling
 - **TLS/SSL Support** - Configurable certificate validation
 - **Connection Timeouts** - Configurable timeouts for all operations
 - **Security Configuration** - Custom CA certs, client certs, cipher suites
+
+📖 **Learn more:** [Connection Configuration](docs/ENVIRONMENT_VARIABLES.md#connection-settings) | [Security Settings](docs/ENVIRONMENT_VARIABLES.md#security-settings)
 
 ### 🛠️ **Production-Ready Design**
 - **PIMPL Pattern** - ABI stability, hide implementation dependencies
@@ -125,12 +120,16 @@ std::cout << "⏱️  Uptime: " << metrics.uptime_string() << std::endl;
 - **Thread-Safe API** - Safe concurrent access to callbacks, subscriptions, metrics
 - **Comprehensive Error Handling** - Exceptions for setup, callbacks for runtime
 
+📖 **Learn more:** [Architecture Details](docs/REFACTORING_PLAN.md) | [Enterprise Readiness](docs/ENTERPRISE_READINESS.md)
+
 ### 📦 **Developer Experience**
 - **Environment Variable Configuration** - Deploy without code changes
 - **Config File Support** - Load settings from `.cfg` files
 - **JSON Serialization** - All data types serialize for web integration
 - **Analytics Helpers** - Built-in spread, imbalance, liquidity calculations
 - **9 Practical Examples** - From quickstart to trading bots
+
+📖 **Learn more:** [Environment Variables Guide](docs/ENVIRONMENT_VARIABLES.md) | [Configuration Guide](docs/CONFIGURATION_ROADMAP.md) | [Examples](examples/README.md)
 
 ---
 
@@ -210,15 +209,7 @@ All benchmarks run in Release mode with Google Benchmark:
 | **Checksum Calculation** | 24 μs | 41K checksums/sec | CRC32 validation |
 | **End-to-End Latency** | < 1 ms | - | I/O → Queue → Callback |
 
-**Benchmark Tools:**
-- `bench_parser` - JSON parsing performance
-- `bench_queue` - SPSC queue throughput  
-- `bench_orderbook` - Order book update speed
-- `bench_checksum` - CRC32 calculation speed
-- `bench_backpressure` - Backpressure and throughput under load
-- `benchmark_integration` - End-to-end performance test
-
-See [docs/BENCHMARKS.md](docs/BENCHMARKS.md) and [docs/TEST_RESULTS.md](docs/TEST_RESULTS.md) for detailed results.
+📖 **Detailed Results:** [Performance Benchmarks](docs/BENCHMARKS.md) | [Test Results](docs/TEST_RESULTS.md)
 
 ---
 
@@ -431,16 +422,16 @@ ctest --output-on-failure
 Total Test time (real) = 25.00 sec
 ```
 
-**25 comprehensive test suites:**
-- ✅ Unit tests (parsing, order book, checksum, auth, logger, queue, config, rate limiter)
-- ✅ Integration tests (end-to-end message flow)
-- ✅ Thread safety tests (concurrent operations)
-- ✅ Edge case tests (boundary conditions)
-- ✅ Exception safety tests (error handling)
-- ✅ **Stress & failure tests** (40+ tests for breaking scenarios)
-- ✅ **Advanced strategy tests** (composition, OHLC, presets, configuration, enable/disable)
+**25 comprehensive test suites (328 test cases):**
+- Unit tests (parsing, order book, checksum, auth, logger, queue, config, rate limiter)
+- Integration tests (end-to-end message flow)
+- Thread safety tests (concurrent operations)
+- Edge case tests (boundary conditions)
+- Exception safety tests (error handling)
+- Stress & failure tests (40+ tests for breaking scenarios)
+- Advanced strategy tests (composition, OHLC, presets, configuration, enable/disable)
 
-**100% test pass rate** - All 25 test suites verified and passing (328 test cases including stress tests).
+📖 **Learn more:** [Test Results](docs/TEST_RESULTS.md) | [Stress Testing](docs/STRESS_TESTING.md)
 
 ---
 
@@ -511,49 +502,40 @@ kraken-sdk/
 
 ## 📚 Documentation
 
-- **[README.md](README.md)** - This file (overview and quick start)
-- **[docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md)** - Configuration reference
-- **[docs/BENCHMARKS.md](docs/BENCHMARKS.md)** - Performance benchmarks
-- **[docs/TEST_RESULTS.md](docs/TEST_RESULTS.md)** - Test results and coverage report
-- **[docs/STRESS_TESTING.md](docs/STRESS_TESTING.md)** - Stress tests and failure injection
-- **[docs/METRICS.md](docs/METRICS.md)** - Metrics and monitoring
-- **[docs/DOXYGEN_DOCUMENTATION.md](docs/DOXYGEN_DOCUMENTATION.md)** - API documentation
-- **[examples/README.md](examples/README.md)** - Example applications
-- **[tests/TESTING.md](tests/TESTING.md)** - Testing strategy and coverage
+### Quick Links
+- **[Configuration Guide](docs/ENVIRONMENT_VARIABLES.md)** - All environment variables and settings
+- **[Strategy Engine](docs/STRATEGY_CONFIGURATION.md)** - Trading strategies guide
+- **[OpenTelemetry](docs/OTEL_STATUS.md)** - Monitoring and observability
+- **[Performance](docs/BENCHMARKS.md)** - Detailed benchmark results
+- **[Architecture](docs/REFACTORING_PLAN.md)** - Code structure and design
 
-**Doxygen API Documentation:**
+### Complete Documentation
+- **[Feature Status](docs/STATUS_SUMMARY.md)** - All implemented features
+- **[Test Results](docs/TEST_RESULTS.md)** - Test coverage and results
+- **[Stress Testing](docs/STRESS_TESTING.md)** - Failure scenarios and resilience
+- **[Metrics Guide](docs/METRICS.md)** - Metrics collection and monitoring
+- **[API Documentation](docs/DOXYGEN_DOCUMENTATION.md)** - Doxygen API reference
+- **[Examples](examples/README.md)** - 9 practical examples
+- **[CI/CD](docs/CI_CD.md)** - Continuous integration setup
+
+**Generate API Documentation:**
 ```bash
-# Generate HTML documentation
 doxygen Doxyfile
 # Open html/index.html
 ```
 
 ---
 
-## 🏆 Why This SDK Stands Out
+## 🏆 Key Highlights
 
-### ✅ **Enterprise-Grade Features**
-- **Trading Strategy Engine** - Built-in intelligence, not just data streaming
-- **Data Integrity** - CRC32 checksums, gap detection, automatic recovery
-- **Production Monitoring** - OpenTelemetry, structured logging, metrics API
-- **Security** - HMAC authentication, TLS configuration, timeouts
+- **🎯 Trading Strategy Engine** - Built-in intelligence with composition, presets, and runtime control
+- **⚡ High Performance** - Sub-microsecond latency, lock-free architecture, 88M+ ops/sec queue
+- **📊 Enterprise Observability** - OpenTelemetry, Prometheus, structured logging
+- **🔒 Production-Grade Reliability** - CRC32 validation, gap detection, automatic reconnection
+- **🧪 Comprehensive Testing** - 25 test suites, 328 test cases, 100% pass rate
+- **📚 Extensive Documentation** - Doxygen API docs, guides, examples, configuration reference
 
-### ✅ **Proven Performance**
-- **Sub-microsecond latency** - Benchmarked and verified
-- **Lock-free architecture** - Zero contention, maximum throughput
-- **Optimized algorithms** - O(log n) order book updates, zero-copy parsing
-
-### ✅ **Developer Experience**
-- **Comprehensive documentation** - Doxygen API docs, examples, guides
-- **Multiple configuration methods** - Environment vars, config files, builder
-- **9 practical examples** - From quickstart to production applications
-- **Thread-safe API** - Safe concurrent access throughout
-
-### ✅ **Production Ready**
-- **25 test suites** - Unit, integration, thread safety, edge cases, stress tests, advanced strategies (328 test cases)
-- **100% test pass rate** - All critical paths tested and verified
-- **Exception safety** - RAII, proper error handling
-- **ABI stability** - PIMPL pattern for future compatibility
+📖 **Explore:** [Feature Status](docs/STATUS_SUMMARY.md) | [Enterprise Readiness](docs/ENTERPRISE_READINESS.md) | [Architecture](docs/REFACTORING_PLAN.md)
 
 ---
 
