@@ -1,14 +1,14 @@
-# OpenTelemetry (OTEL) Integration Status
+# OpenTelemetry (OTEL) Integration
 
-## Current Status: ✅ Complete (Metrics Collection + HTTP Server + OTLP Export)
+## Overview
 
-The OpenTelemetry (OTEL) interface is now fully integrated into the Kraken SDK client. All core metrics are automatically collected when telemetry is enabled via `ClientConfig`, and metrics can be exported via HTTP server (Prometheus scraping) or OTLP push.
+The OpenTelemetry (OTEL) interface is fully integrated into the Kraken SDK client. All core metrics are automatically collected when telemetry is enabled via `ClientConfig`, and metrics can be exported via HTTP server (Prometheus scraping) or OTLP push.
 
 ---
 
-## What's Complete
+## Features
 
-### ✅ Telemetry Interface (`include/kraken/telemetry.hpp`)
+### Telemetry Interface (`include/kraken/telemetry/telemetry.hpp`)
 
 - **`TelemetryConfig`** - Configuration structure with builder pattern
   - Service name, version, environment
@@ -30,7 +30,7 @@ The OpenTelemetry (OTEL) interface is now fully integrated into the Kraken SDK c
   - OTLP export lifecycle management
   - Direct metrics access
 
-### ✅ HTTP Server for Prometheus (`src/telemetry.cpp`)
+### HTTP Server for Prometheus (`src/telemetry/prometheus_server.cpp`)
 
 - Built-in HTTP server using Boost.Beast for exposing Prometheus metrics
 - **Endpoints:**
@@ -41,23 +41,22 @@ The OpenTelemetry (OTEL) interface is now fully integrated into the Kraken SDK c
 - Thread-safe, async request handling
 - No external dependencies (uses Boost.Beast already in project)
 
-### ✅ OTLP HTTP Exporter (`src/telemetry.cpp`)
+### OTLP HTTP Exporter (`src/telemetry/otlp_exporter.cpp`)
 
 - Background thread for periodic metric export
 - Configurable export interval (default: 15 seconds)
 - Retry logic support (configurable max retries)
-- Placeholder for full OTLP protobuf serialization
-- Currently supports Prometheus Pushgateway format
-- Can be extended to full OTLP HTTP/JSON or gRPC
+- OTLP HTTP/JSON format support
+- Can be extended to full OTLP protobuf or gRPC
 
-### ✅ Client Integration
+### Client Integration
 
-The `Telemetry` class is **fully integrated** into `KrakenClient`:
+The `Telemetry` class is fully integrated into `KrakenClient`:
 
-- ✅ `ClientConfig::Builder::telemetry()` method added
-- ✅ `KrakenClient::Impl` instantiates and starts `Telemetry` when configured
-- ✅ `KrakenClient::Impl::stop()` stops telemetry services
-- ✅ All metrics automatically collected:
+- `ClientConfig::Builder::telemetry()` method for configuration
+- `KrakenClient::Impl` instantiates and starts `Telemetry` when configured
+- `KrakenClient::Impl::stop()` stops telemetry services
+- All metrics automatically collected:
   - Messages received/processed/dropped
   - Queue depth
   - Connection state
@@ -66,19 +65,8 @@ The `Telemetry` class is **fully integrated** into `KrakenClient`:
   - Checksum failures
   - Gap detection
   - Strategy alerts triggered
-- ✅ `get_metrics()` reads from Telemetry when enabled
-- ✅ `get_telemetry_instance()` exposes Telemetry for advanced use
-
-### ✅ Test Coverage
-
-- `tests/test_telemetry.cpp` verifies the `Telemetry` interface and `MetricsCollector` functionality
-
-### ✅ Example
-
-- `examples/telemetry.cpp` demonstrates:
-  - Telemetry configuration with HTTP server
-  - Real-time metrics display
-  - Prometheus endpoint access
+- `get_metrics()` reads from Telemetry when enabled
+- `get_telemetry_instance()` exposes Telemetry for advanced use
 
 ---
 
@@ -158,15 +146,13 @@ curl http://localhost:9090/health
 
 ---
 
-## What's Next (Future Enhancements)
+## Future Enhancements
 
-### Phase 3: Full OTLP Protobuf Export (Optional)
+### Full OTLP Protobuf Export (Optional)
 
 - Integrate with the official OpenTelemetry C++ SDK or implement OTLP protobuf serialization
 - Full OTLP (OpenTelemetry Protocol) exporter to send metrics, traces, and logs to an OpenTelemetry Collector via gRPC or HTTP
 - This would enable seamless integration with various backends like Jaeger (tracing), Grafana (dashboards), and other APM tools
-
-**Estimated Effort:** 2-3 days (if using official OTEL SDK)
 
 ---
 
@@ -208,13 +194,9 @@ curl http://localhost:9090/health
 
 ## Conclusion
 
-**Status:** ✅ Complete and Production-Ready
-
-The OTEL integration is fully functional:
-- ✅ Metrics collection (lock-free, high-performance)
-- ✅ HTTP server for Prometheus scraping
-- ✅ OTLP export framework (ready for protobuf extension)
-- ✅ Automatic lifecycle management
-- ✅ Zero external dependencies (uses existing Boost.Beast)
-
-**For Hackathon:** This implementation demonstrates production-grade observability with minimal dependencies and maximum flexibility.
+The OTEL integration is fully functional and production-ready:
+- Metrics collection (lock-free, high-performance)
+- HTTP server for Prometheus scraping
+- OTLP export framework (ready for protobuf extension)
+- Automatic lifecycle management
+- Zero external dependencies (uses existing Boost.Beast)
