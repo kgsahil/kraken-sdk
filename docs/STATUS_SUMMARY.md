@@ -22,8 +22,10 @@
 | **Security Config** | TLS, certificates, cipher suites | `include/kraken/connection/connection_config.hpp` |
 | **Gap Detection** | Sequence tracking, gap reporting | `include/kraken/connection/gap_detector.hpp` |
 | **Exponential Backoff** | Reconnection strategy with jitter | `include/kraken/connection/backoff.hpp` |
+| **Circuit Breaker** | Connection failure protection with configurable thresholds | `include/kraken/connection/circuit_breaker.hpp` |
 | **CRC32 Checksum** | Order book data integrity validation | `src/internal/book_engine.cpp` |
 | **Trading Strategy Engine** | PriceAlert, VolumeSpike, SpreadAlert, CompositeStrategy, StrategyPresets, OHLC support, config from files/env vars, runtime enable/disable | `include/kraken/strategies/` |
+| **Private Channels** | Own trades, open orders, and account balances (requires authentication) | `include/kraken/core/types.hpp`, `src/client/subscriptions.cpp` |
 
 ### Testing & Quality
 
@@ -115,6 +117,10 @@
 
 **Current Status:** Production-Ready SDK
 
-**Completed:** All 34 critical features (100%)
+**Completed:** All 36 critical features (100%) - Added Circuit Breaker and Private Channels
 
 The SDK is production-ready with all critical enterprise features implemented, tested, and documented. The CI/CD pipeline ensures automated testing on every commit.
+
+**Recent Additions:**
+- ✅ **Circuit Breaker** - Automatic connection failure protection with configurable thresholds
+- ✅ **Private Channels** - Access to own trades, open orders, and account balances with authentication

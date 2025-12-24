@@ -64,6 +64,7 @@ client.add_alert(alert, [](const kraken::Alert& a) {
 - **CRC32 Checksum Validation** - Detects corrupted order book data
 - **Message Gap Detection** - Tracks sequence numbers to identify missed messages
 - **Automatic Reconnection** - Exponential backoff with jitter (production-ready)
+- **Circuit Breaker** - Prevents cascading failures by automatically opening circuit after repeated connection failures
 - **Resubscription** - Automatically restores subscriptions after reconnection
 - **Outbound Rate Limiter** - Token-bucket throttling of all outbound messages (configurable RPS + burst)
 
