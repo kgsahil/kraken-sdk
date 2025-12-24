@@ -224,6 +224,7 @@ std::unordered_map<std::string, Balance> parse_balances(const rapidjson::Value& 
 
 } // namespace
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) - Complex message parsing requires many conditionals
 Message parse_message(const std::string& raw_json) {
     Message msg;
     msg.type = MessageType::Heartbeat;
