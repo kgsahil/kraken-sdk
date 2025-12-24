@@ -107,12 +107,15 @@ struct Ticker {
     /// @brief Convert to JSON string for web integration
     /// @return JSON representation of the ticker
     std::string to_json() const {
-        char buf[512];
-        snprintf(buf, sizeof(buf),
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+        std::array<char, 512> buf{};
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+        const int result = snprintf(buf.data(), buf.size(),
             R"({"symbol":"%s","bid":%.8f,"ask":%.8f,"last":%.8f,"volume_24h":%.2f,"high_24h":%.8f,"low_24h":%.8f,"spread":%.8f,"mid":%.8f,"timestamp":"%s"})",
             symbol.c_str(), bid, ask, last, volume_24h, high_24h, low_24h, 
             spread(), mid_price(), timestamp.c_str());
-        return std::string(buf);
+        (void)result;  // Suppress unused result warning
+        return {buf.data()};
     }
 };
 
@@ -133,12 +136,15 @@ struct Trade {
     /// @brief Convert to JSON string for web integration
     /// @return JSON representation of the trade
     std::string to_json() const {
-        char buf[256];
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+        std::array<char, 256> buf{};
         const char* side_str = (side == Side::Buy) ? "buy" : "sell";
-        snprintf(buf, sizeof(buf),
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+        const int result = snprintf(buf.data(), buf.size(),
             R"({"symbol":"%s","price":%.8f,"quantity":%.8f,"side":"%s","value":%.2f,"timestamp":"%s"})",
             symbol.c_str(), price, quantity, side_str, value(), timestamp.c_str());
-        return std::string(buf);
+        (void)result;  // Suppress unused result warning
+        return {buf.data()};
     }
 };
 
@@ -232,22 +238,31 @@ struct OrderBook {
         size_t n = std::min(levels, bids.size());
         for (size_t i = 0; i < n; ++i) {
             if (i > 0) json += ",";
-            char buf[64];
-            snprintf(buf, sizeof(buf), "[%.8f,%.8f]", bids[i].price, bids[i].quantity);
-            json += buf;
+            // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+            std::array<char, 64> buf{};
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+            const int result = snprintf(buf.data(), buf.size(), "[%.8f,%.8f]", bids[i].price, bids[i].quantity);
+            (void)result;  // Suppress unused result warning
+            json += buf.data();
         }
         json += R"(],"asks":[)";
         n = std::min(levels, asks.size());
         for (size_t i = 0; i < n; ++i) {
             if (i > 0) json += ",";
-            char buf[64];
-            snprintf(buf, sizeof(buf), "[%.8f,%.8f]", asks[i].price, asks[i].quantity);
-            json += buf;
+            // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+            std::array<char, 64> buf{};
+            // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+            const int result = snprintf(buf.data(), buf.size(), "[%.8f,%.8f]", asks[i].price, asks[i].quantity);
+            (void)result;  // Suppress unused result warning
+            json += buf.data();
         }
-        char buf[128];
-        snprintf(buf, sizeof(buf), R"(],"spread":%.8f,"mid":%.8f,"imbalance":%.4f,"valid":%s})",
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+        std::array<char, 128> buf{};
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+        const int result = snprintf(buf.data(), buf.size(), R"(],"spread":%.8f,"mid":%.8f,"imbalance":%.4f,"valid":%s})",
             spread(), mid_price(), imbalance(levels), is_valid ? "true" : "false");
-        json += buf;
+        (void)result;  // Suppress unused result warning
+        json += buf.data();
         return json;
     }
 };
@@ -307,7 +322,8 @@ struct Order {
     /// @brief Convert to JSON string for web integration
     /// @return JSON representation of the order
     std::string to_json() const {
-        char buf[512];
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+        std::array<char, 512> buf{};
         const char* side_str = (side == Side::Buy) ? "buy" : "sell";
         const char* type_str = (type == OrderType::Market) ? "market" : "limit";
         const char* status_str = "open";
@@ -318,11 +334,13 @@ struct Order {
             case OrderStatus::Cancelled: status_str = "cancelled"; break;
             case OrderStatus::Expired: status_str = "expired"; break;
         }
-        snprintf(buf, sizeof(buf),
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+        const int result = snprintf(buf.data(), buf.size(),
             R"({"order_id":"%s","symbol":"%s","side":"%s","type":"%s","status":"%s","price":%.8f,"quantity":%.8f,"filled":%.8f,"remaining":%.8f,"fill_percent":%.2f,"timestamp":"%s"})",
             order_id.c_str(), symbol.c_str(), side_str, type_str, status_str,
             price, quantity, filled, remaining, fill_percentage(), timestamp.c_str());
-        return std::string(buf);
+        (void)result;  // Suppress unused result warning
+        return {buf.data()};
     }
 };
 
@@ -351,13 +369,16 @@ struct OwnTrade {
     /// @brief Convert to JSON string for web integration
     /// @return JSON representation of the trade
     std::string to_json() const {
-        char buf[512];
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+        std::array<char, 512> buf{};
         const char* side_str = (side == Side::Buy) ? "buy" : "sell";
-        snprintf(buf, sizeof(buf),
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+        const int result = snprintf(buf.data(), buf.size(),
             R"({"trade_id":"%s","order_id":"%s","symbol":"%s","side":"%s","price":%.8f,"quantity":%.8f,"value":%.2f,"fee":%.8f,"fee_currency":"%s","net_value":%.2f,"timestamp":"%s"})",
             trade_id.c_str(), order_id.c_str(), symbol.c_str(), side_str,
             price, quantity, value(), fee, fee_currency.c_str(), net_value(), timestamp.c_str());
-        return std::string(buf);
+        (void)result;  // Suppress unused result warning
+        return {buf.data()};
     }
 };
 
@@ -373,11 +394,14 @@ struct Balance {
     /// @brief Convert to JSON string for web integration
     /// @return JSON representation of the balance
     std::string to_json() const {
-        char buf[256];
-        snprintf(buf, sizeof(buf),
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,hicpp-avoid-c-arrays,modernize-avoid-c-arrays) - snprintf requires C array
+        std::array<char, 256> buf{};
+        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-vararg,hicpp-vararg,cert-err33-c) - snprintf is safe here
+        const int result = snprintf(buf.data(), buf.size(),
             R"({"currency":"%s","available":%.8f,"reserved":%.8f,"total":%.8f})",
             currency.c_str(), available, reserved, total);
-        return std::string(buf);
+        (void)result;  // Suppress unused result warning
+        return {buf.data()};
     }
 };
 

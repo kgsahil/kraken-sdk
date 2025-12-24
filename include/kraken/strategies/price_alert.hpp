@@ -124,6 +124,7 @@ public:
         
         if (triggered) {
             fired_ = true;
+            fire_count_++;
             last_fired_time_ = now;
             last_message_ = build_message(ticker, prev_price);
         }
@@ -139,6 +140,7 @@ public:
     
     void reset() override {
         fired_ = false;
+        fire_count_ = 0;
         last_fired_time_ = std::chrono::steady_clock::time_point{};
         last_price_ = 0.0;
         last_message_.clear();
@@ -164,29 +166,26 @@ public:
     bool is_recurring() const { return recurring_; }
     
     /// @brief Get the last alert message
-    /// @return Last message (for backward compatibility)
-    static std::string last_message() {
-        // This is a workaround for backward compatibility
-        // In practice, get_alert_message() should be used
-        return "";
-    }
+    /// @return Last message
+    const std::string& last_message() const { return last_message_; }
     
 private:
     std::string build_message(const Ticker& ticker, double prev_price) const {
-        std::string msg = "Price alert: " + ticker.symbol + " = $" + std::to_string(ticker.last);
+        std::string msg;
+        
+        if (above_ != std::numeric_limits<double>::max() && ticker.last >= above_) {
+            msg = "Price above $" + std::to_string(above_) + " for " + ticker.symbol;
+        } else if (below_ != std::numeric_limits<double>::lowest() && ticker.last <= below_) {
+            msg = "Price below $" + std::to_string(below_) + " for " + ticker.symbol;
+        } else {
+            msg = "Price alert: " + ticker.symbol + " = $" + std::to_string(ticker.last);
+        }
         
         if (prev_price > 0.0) {
             double change = ticker.last - prev_price;
             double change_pct = (change / prev_price) * 100.0;
-            msg += " (";
-            if (change > 0) msg += "+";
-            msg += std::to_string(change_pct) + "%, prev: $" + std::to_string(prev_price) + ")";
-        }
-        
-        if (above_ != std::numeric_limits<double>::max() && ticker.last >= above_) {
-            msg += " [ABOVE $" + std::to_string(above_) + "]";
-        } else if (below_ != std::numeric_limits<double>::lowest() && ticker.last <= below_) {
-            msg += " [BELOW $" + std::to_string(below_) + "]";
+            msg += " (was $" + std::to_string(prev_price);
+            msg += ", " + std::to_string(std::abs(change_pct)) + "% change)";
         }
         
         return msg;

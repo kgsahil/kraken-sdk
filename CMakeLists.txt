@@ -248,6 +248,8 @@ if(KRAKEN_BUILD_TESTS)
     endfunction()
     
     add_kraken_test(test_strategies)
+    add_kraken_test(test_private_channels)
+    add_kraken_test(test_circuit_breaker)
     add_kraken_test(test_book_checksum)
     add_kraken_test(test_connection)
     add_kraken_test(test_parser)
