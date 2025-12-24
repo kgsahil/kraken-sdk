@@ -9,6 +9,7 @@
 
 #include "kraken/kraken.hpp"
 #include "common.hpp"
+#include "config.hpp"
 #include <iostream>
 #include <iomanip>
 #include <vector>
