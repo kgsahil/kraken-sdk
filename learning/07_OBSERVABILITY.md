@@ -44,7 +44,7 @@ graph TD
     OTLP -->|HTTP POST| Grafana
     Prom -->|HTTP GET /metrics| PromServer
     PromServer --> Grafana
-    Metrics -->|get_metrics()| Dashboard["Terminal Dashboard\n(built-in example)"]
+    Metrics -->|"get_metrics()"| Dashboard["Terminal Dashboard"]
 ```
 
 ### Why Both OTLP and Prometheus?
