@@ -157,7 +157,7 @@ struct SecurityConfig {
 ```
 
 ### 💡 Key Insight
-The `wss://` prefix means "WebSocket Secure" — similar to how `https://` means "HTTP Secure". The SDK always uses `wss://` for production connections to Kraken.
+The `wss://` prefix means "WebSocket Secure" — similar to how `https://` means "HTTP Secure". The SDK always uses `wss://` for production connections to Kraken. You configure TLS through `ClientConfig::Builder::security(SecurityConfig{...})`.
 
 ---
 

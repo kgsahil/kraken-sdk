@@ -299,6 +299,21 @@ enum class ConnectionState {
 };
 ```
 
+### All Scoped Enums in the SDK
+
+The SDK uses `enum class` extensively — **6** scoped enums in total:
+
+| Enum | Underlying Type | Where Used |
+|------|----------------|-----------|
+| `Channel` | `std::uint8_t` | Subscription channels (Ticker, Trade, Book, ...) |
+| `Side` | `std::uint8_t` | Buy/sell order side |
+| `OrderType` | `std::uint8_t` | Market/limit order type |
+| `ErrorCode` | `std::uint8_t` | SDK error categorization |
+| `ConnectionState` | (default `int`) | Connection state machine |
+| `OrderStatus` | `std::uint8_t` | Pending/open/closed/cancelled/expired |
+
+> 📘 For full data type documentation, see [`docs/DOXYGEN_DOCUMENTATION.md`](../docs/DOXYGEN_DOCUMENTATION.md)
+
 ### Why `: std::uint8_t`?
 
 Specifying the underlying type (`: std::uint8_t`) gives you:

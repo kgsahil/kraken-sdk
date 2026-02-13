@@ -327,6 +327,10 @@ The dashboard example demonstrates that `get_metrics()` is designed for **contin
 | **Pull Metrics** | Prometheus Server | Prometheus text format | HTTP GET |
 | **Dashboard** | Terminal UI (example) | Formatted metrics | Console |
 
+> 📘 For metrics endpoint specification, see [`docs/METRICS.md`](../docs/METRICS.md)
+>
+> 📘 For OpenTelemetry integration status, see [`docs/OTEL_STATUS.md`](../docs/OTEL_STATUS.md)
+
 ---
 
 **Previous:** [← Chapter 6: Resilience](06_RESILIENCE.md) · **Next:** [Chapter 8: Testing →](08_TESTING.md)

@@ -125,7 +125,8 @@ auto config = ClientConfig::Builder()
     .api_key("your-key")
     .use_queue(true)
     .queue_capacity(131072)
-    .circuit_breaker(true, 5, 2, 30s, 5s)
+    .circuit_breaker(true)
+    .backoff(ExponentialBackoff::conservative())
     .build();
 ```
 
@@ -158,21 +159,43 @@ classDiagram
 
 ### Where It's Used
 
-The SDK uses Builders in **three** places:
+The Builder pattern is used **pervasively** across the SDK — virtually every configurable component uses it:
 
 | Builder | Builds | File |
 |---------|--------|------|
-| `ClientConfig::Builder` | Client configuration | `include/kraken/core/config.hpp` |
+| **Core** | | |
+| `ClientConfig::Builder` | Client configuration (20+ parameters) | `include/kraken/core/config.hpp` |
+| **Connection** | | |
 | `ExponentialBackoff::Builder` | Backoff strategy | `include/kraken/connection/backoff.hpp` |
-| `PriceAlert::Builder` | Alert strategy | `include/kraken/strategies/price_alert.hpp` |
+| **Strategies** | | |
+| `PriceAlert::Builder` | Price threshold alerts | `include/kraken/strategies/price_alert.hpp` |
+| `VolumeSpike::Builder` | Volume spike detection | `include/kraken/strategies/volume_spike.hpp` |
+| `SpreadAlert::Builder` | Spread monitoring alerts | `include/kraken/strategies/spread_alert.hpp` |
+| **Telemetry** | | |
+| `TelemetryConfig::Builder` | OTLP telemetry configuration | `include/kraken/telemetry/config.hpp` |
+
+> [!NOTE]
+> Builders are also **composed** — `ClientConfig::Builder` accepts a `TelemetryConfig` built by its own builder, and a backoff strategy built by `ExponentialBackoff::Builder`:
+> ```cpp
+> auto config = ClientConfig::Builder()
+>     .url("wss://ws.kraken.com/v2")
+>     .telemetry(TelemetryConfig::Builder()
+>         .service_name("my-app")
+>         .metrics(true)
+>         .build())
+>     .backoff(ExponentialBackoff::builder()
+>         .initial_delay(std::chrono::seconds(1))
+>         .build())
+>     .build();
+> ```
 
 ### The `Builder&` Return Pattern
 
 Every setter returns `Builder&` — a **reference to itself**. This is what enables method chaining:
 
 ```cpp
-Builder& url(const std::string& u) {
-    config_.url_ = u;
+Builder& url(std::string u) {
+    config_.url_ = std::move(u);  // Take by value, move into place
     return *this;   // ← Returns reference to same builder
 }
 ```
@@ -509,7 +532,7 @@ if (error) return false;    // ✅ lock_guard destructor unlocks automatically
 ```mermaid
 graph LR
     subgraph Creational
-        Builder["Builder\n(ClientConfig)"]
+        Builder["Builder\n(Config, Strategies,\nBackoff, Telemetry)"]
         Factory["Factory Method\n(Backoff presets)"]
         Prototype["Prototype\n(clone())"]
     end

@@ -98,3 +98,25 @@ Throughout these documents, source code links use the format:
 - `benchmarks/...` — Performance benchmarks
 
 All paths are relative to the project root (`kraken-sdk/`).
+
+---
+
+## 📖 Deep-Dive Resources
+
+For implementation details beyond what this learning guide covers, see the reference docs in [`docs/`](../docs/):
+
+| Topic | Document | Related Chapters |
+|-------|----------|-----------------|
+| Strategy engine internals | [`STRATEGY_ENGINE.md`](../docs/STRATEGY_ENGINE.md) | Ch 2, 4 |
+| Configuration validation | [`CONFIGURATION_VALIDATION.md`](../docs/CONFIGURATION_VALIDATION.md) | Ch 4 |
+| Configuration roadmap | [`CONFIGURATION_ROADMAP.md`](../docs/CONFIGURATION_ROADMAP.md) | Ch 4 |
+| Environment variables | [`ENVIRONMENT_VARIABLES.md`](../docs/ENVIRONMENT_VARIABLES.md) | Ch 4 |
+| Metrics specification | [`METRICS.md`](../docs/METRICS.md) | Ch 7 |
+| OpenTelemetry status | [`OTEL_STATUS.md`](../docs/OTEL_STATUS.md) | Ch 7 |
+| Doxygen docs | [`DOXYGEN_DOCUMENTATION.md`](../docs/DOXYGEN_DOCUMENTATION.md) | Ch 1 |
+| Test results | [`TEST_RESULTS.md`](../docs/TEST_RESULTS.md) | Ch 8 |
+| Stress testing | [`STRESS_TESTING.md`](../docs/STRESS_TESTING.md) | Ch 6, 8 |
+| Benchmarks | [`BENCHMARKS.md`](../docs/BENCHMARKS.md) | Ch 8 |
+| CI/CD pipeline | [`CI_CD.md`](../docs/CI_CD.md) | Ch 8 |
+| Project analysis | [`PROJECT_ANALYSIS.md`](../docs/PROJECT_ANALYSIS.md) | All |
+| Roadmap | [`ROADMAP.md`](../docs/ROADMAP.md) | All |

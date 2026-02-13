@@ -116,15 +116,15 @@ The SDK is organized into **four modules**, each with its own `include/` and `sr
 graph TD
     subgraph "Public API (include/kraken/)"
         Core["core/\nclient.hpp\nconfig.hpp\ntypes.hpp\nerror.hpp"]
-        Strat["strategies/\nbase.hpp\nprice_alert.hpp\nvolume_spike.hpp\ncomposite.hpp\npresets.hpp"]
-        Telem["telemetry/\ntelemetry.hpp\nconfig.hpp\nprometheus_server.hpp\notlp_exporter.hpp"]
-        Conn["connection/\nbackoff.hpp\ngap_detector.hpp\nconnection_config.hpp"]
+        Strat["strategies/\nbase.hpp\nprice_alert.hpp\nvolume_spike.hpp\nspread_alert.hpp\ncomposite.hpp\npresets.hpp\nstrategy_config.hpp\nstrategies.hpp"]
+        Telem["telemetry/\ntelemetry.hpp\nconfig.hpp\nmetrics_collector.hpp\nprometheus_server.hpp\notlp_exporter.hpp"]
+        Conn["connection/\nbackoff.hpp\ncircuit_breaker.hpp\ngap_detector.hpp\nconnection_config.hpp"]
     end
 
     subgraph "Implementation (src/)"
         CoreImpl["core/\nclient.cpp\nconfig.cpp"]
-        ClientImpl["client/\nlifecycle.cpp\ncallbacks.cpp\nsubscriptions.cpp\nstrategies.cpp\ndispatch.cpp\nreconnect.cpp"]
-        Internal["internal/\nclient_impl.hpp\nparser.hpp\nbook_engine.hpp\nconnection.hpp"]
+        ClientImpl["client/\nlifecycle.cpp\ncallbacks.cpp\nsubscriptions.cpp\nstrategies.cpp\ndispatch.cpp\nreconnect.cpp\nsnapshots.cpp\nmetrics.cpp\nstrategy_engine_impl.cpp\nsubscription_impl.cpp"]
+        Internal["internal/\nclient_impl.hpp\nparser.hpp\nbook_engine.hpp\nconnection.hpp\nauth.hpp"]
     end
 
     Core --> CoreImpl
@@ -136,11 +136,13 @@ graph TD
 
 | Module | Purpose | Key Files |
 |--------|---------|-----------|
-| **core/** | Public API, data types, configuration | `client.hpp`, `types.hpp`, `config.hpp` |
-| **strategies/** | Trading intelligence engine | `base.hpp`, `price_alert.hpp`, `composite.hpp` |
-| **telemetry/** | Monitoring and metrics export | `telemetry.hpp`, `prometheus_server.hpp` |
-| **connection/** | Resilience and reconnection logic | `backoff.hpp`, `gap_detector.hpp` |
-| **internal/** | Private implementation details | `client_impl.hpp`, `parser.hpp`, `book_engine.hpp` |
+| **core/** | Public API, data types, configuration | `client.hpp`, `types.hpp`, `config.hpp`, `error.hpp` |
+| **strategies/** | Trading intelligence engine | `base.hpp`, `price_alert.hpp`, `spread_alert.hpp`, `volume_spike.hpp`, `composite.hpp`, `presets.hpp`, `strategy_config.hpp` |
+| **telemetry/** | Monitoring and metrics export | `telemetry.hpp`, `metrics_collector.hpp`, `prometheus_server.hpp`, `otlp_exporter.hpp` |
+| **connection/** | Resilience and reconnection logic | `backoff.hpp`, `circuit_breaker.hpp`, `gap_detector.hpp`, `connection_config.hpp` |
+| **internal/** | Private implementation details | `client_impl.hpp`, `parser.hpp`, `book_engine.hpp`, `connection.hpp`, `auth.hpp` |
+
+> 📘 For detailed strategy engine architecture, see [`docs/STRATEGY_ENGINE.md`](../docs/STRATEGY_ENGINE.md)
 
 ### The `client/` Subdirectory
 
@@ -151,7 +153,9 @@ The PIMPL implementation (`Impl`) is split across multiple `.cpp` files for main
 | `lifecycle.cpp` | Constructor, destructor, `connect()`, `disconnect()`, `run()` |
 | `callbacks.cpp` | `on_ticker()`, `on_trade()`, etc. |
 | `subscriptions.cpp` | `subscribe()`, `subscribe_book()`, etc. |
+| `subscription_impl.cpp` | Internal subscription management |
 | `strategies.cpp` | `add_alert()`, `remove_alert()`, etc. |
+| `strategy_engine_impl.cpp` | Strategy engine evaluation logic |
 | `dispatch.cpp` | Message dispatch loop, callback invocation |
 | `reconnect.cpp` | Reconnection logic with backoff |
 | `snapshots.cpp` | `latest_ticker()`, `latest_book()` |
@@ -271,6 +275,10 @@ SPSC_QUEUE_SIZE=131072
 
 ### 💡 Key Insight
 Environment variables are the recommended approach for **production deployments** because they allow changing behavior without recompiling. The Builder is for library integration where compile-time configuration is preferred.
+
+> 📘 For configuration validation details, see [`docs/CONFIGURATION_VALIDATION.md`](../docs/CONFIGURATION_VALIDATION.md)
+> 
+> 📘 For the full list of environment variables, see [`docs/ENVIRONMENT_VARIABLES.md`](../docs/ENVIRONMENT_VARIABLES.md)
 
 ---
 

@@ -408,6 +408,14 @@ clang-tidy src/*.cpp -- -std=c++17 -I include/
 | **Benchmarks** | Google Benchmark | Performance | Seconds |
 | **CI/CD** | GitHub Actions | All of the above, automatically | Minutes |
 
+> 📘 For detailed test results, see [`docs/TEST_RESULTS.md`](../docs/TEST_RESULTS.md)
+> 
+> 📘 For stress testing details, see [`docs/STRESS_TESTING.md`](../docs/STRESS_TESTING.md)
+> 
+> 📘 For benchmark results, see [`docs/BENCHMARKS.md`](../docs/BENCHMARKS.md)
+> 
+> 📘 For CI/CD pipeline configuration, see [`docs/CI_CD.md`](../docs/CI_CD.md)
+
 ---
 
 **Previous:** [← Chapter 7: Observability](07_OBSERVABILITY.md) · **Back to:** [README →](README.md)

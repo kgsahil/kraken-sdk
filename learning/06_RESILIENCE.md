@@ -58,19 +58,24 @@ stateDiagram-v2
 
 ### Configuration
 
-📄 **File:** `include/kraken/core/config.hpp`
+📄 **Files:** `include/kraken/core/config.hpp` · `include/kraken/connection/circuit_breaker.hpp`
+
+The circuit breaker is configured in two steps: enable it via the `Builder`, then optionally customize thresholds via `CircuitBreakerConfig`:
 
 ```cpp
 auto config = ClientConfig::Builder()
-    .circuit_breaker(
-        true,                          // enabled
-        5,                             // failure_threshold (trip after 5 failures)
-        2,                             // success_threshold (close after 2 successes)
-        std::chrono::seconds(30),      // open_state_timeout (wait before half-open)
-        std::chrono::seconds(5)        // half_open_timeout
-    )
+    .circuit_breaker(true)                       // Enable circuit breaker
+    .circuit_breaker_config(CircuitBreakerConfig{
+        .failure_threshold = 5,                  // Trip after 5 failures
+        .success_threshold = 2,                  // Close after 2 successes in half-open
+        .timeout_ms = std::chrono::milliseconds(30000),  // Wait before half-open
+        .failure_window_ms = std::chrono::milliseconds(60000),
+        .min_open_time_ms = std::chrono::milliseconds(10000)
+    })
     .build();
 ```
+
+> 📘 For complete resilience stress testing, see [`docs/STRESS_TESTING.md`](../docs/STRESS_TESTING.md)
 
 ### States Explained
 
