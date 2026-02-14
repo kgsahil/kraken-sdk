@@ -82,6 +82,8 @@ struct Message {
 ### 💡 Key Insight
 The `Message` struct uses **both** an `enum MessageType` and the variant. The enum is a fast O(1) type check (an integer comparison), while the variant holds the actual data. This avoids the overhead of `std::visit` on the hot path.
 
+> ⚠️ **Queue Memory Implication:** Because `MessageData` lives inside the SPSC ring buffer, `sizeof(MessageData)` determines the memory per queue slot. A `HeartbeatMsg` (1 byte useful) occupies the same slot size as an `Order` (~200 bytes). This is the trade-off of uniform slot sizes in a ring buffer — see [Chapter 3: Slot Size Trade-Offs](03_CONCURRENCY.md#slot-size-trade-offs) for the full analysis.
+
 ---
 
 ## 1.2 `std::optional` — Nullable Values

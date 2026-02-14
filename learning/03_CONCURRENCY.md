@@ -158,6 +158,199 @@ Cache Line 1: [TAIL, padding, padding, ...]   ← Producer's cache line
 ### 💡 Key Insight
 The queue uses `std::memory_order_acquire` and `std::memory_order_release` barriers. These are **weaker** than the default `memory_order_seq_cst`, avoiding expensive full memory fences on x86 while still guaranteeing visibility between threads.
 
+### How Multiple Message Types Share One Queue
+
+The SDK carries **all** message types through a single `MessageQueue<Message>`. The `Message` struct uses `std::variant` (see [Chapter 1: std::variant](01_CPP17_FEATURES.md#11-stdvariant--type-safe-unions)) to hold any of 11 types:
+
+📄 **File:** `src/internal/client_impl.hpp`
+
+```cpp
+using MessageData = std::variant<
+    std::monostate,                              // Empty state
+    Ticker,                                       // Market ticker data
+    Trade,                                        // Trade execution
+    OrderBook,                                    // Order book snapshot
+    OHLC,                                         // Candlestick data
+    Order,                                        // Open order update (private)
+    OwnTrade,                                     // User's executed trade (private)
+    std::unordered_map<std::string, Balance>,     // Balance map (private)
+    Error,                                        // Error notification
+    SubscribedMsg,                                // Control: subscription confirmed
+    UnsubscribedMsg,                              // Control: unsubscription confirmed
+    HeartbeatMsg                                  // Control: heartbeat received
+>;
+
+struct Message {
+    MessageType type;           // Enum for fast O(1) type check
+    MessageData data;           // Variant holding actual data
+    steady_clock::time_point receive_time;  // For latency tracking
+    std::string channel;        // e.g., "ticker", "book"
+    std::string symbol;         // e.g., "BTC/USD"
+    uint64_t sequence = 0;      // Gap detection
+    bool has_sequence = false;
+};
+```
+
+Every slot in the ring buffer is a `Message` — the variant handles polymorphism at **zero virtual dispatch cost**. Control messages (`HeartbeatMsg`, `SubscribedMsg`, `UnsubscribedMsg`) are empty structs:
+
+```cpp
+struct SubscribedMsg {};    // 1 byte
+struct UnsubscribedMsg {};  // 1 byte
+struct HeartbeatMsg {};     // 1 byte
+```
+
+### Slot Size Trade-Offs
+
+**`std::variant` allocates `sizeof(largest_alternative)` for every slot**, regardless of which type it currently holds:
+
+| Variant Alternative | Approximate Size | Storage |
+|---------------------|-----------------|---------|
+| `HeartbeatMsg` | 1 byte | Inline (stack) |
+| `SubscribedMsg` | 1 byte | Inline (stack) |
+| `Trade` | ~72 bytes | Inline (stack) |
+| `OHLC` | ~72 bytes | Inline (stack) |
+| `Ticker` | ~120 bytes | Inline (stack) |
+| `Order` | ~200 bytes | Inline (stack) |
+| `OrderBook` | ~56 bytes + **heap** | Vectors of `PriceLevel` on heap |
+| `unordered_map<string, Balance>` | ~56 bytes + **heap** | Hash map on heap |
+
+**What this means:**
+- A `HeartbeatMsg` (1 byte of useful data) occupies the same slot size as an `Order` (~200 bytes). This wastes ~199 bytes per heartbeat.
+- Variable-length data (`OrderBook` bids/asks, balance maps) stores only a pointer/size inline — the actual data lives on the **heap** via `std::vector` / `std::unordered_map`.
+- This uniformity is **required** for a ring buffer — every slot must be the same size for O(1) index arithmetic.
+
+### Producer: I/O Thread Push
+
+📄 **File:** `src/client/dispatch.cpp` — `io_loop()`
+
+The I/O thread reads from WebSocket, parses JSON into a `Message`, and pushes to the queue:
+
+```cpp
+// Inside io_loop() — producer side
+if (queue_) {
+    // Queue mode: push to queue for dispatcher thread
+    if (queue_->try_push(std::move(msg))) {
+        // Notify dispatcher thread (efficient wake-up)
+        queue_cv_.notify_one();
+    } else {
+        // Queue full — drop message (lock-free counter)
+        msg_dropped_.fetch_add(1, std::memory_order_relaxed);
+
+        // Notify via error callback
+        safe_invoke_error_callback(ErrorCode::QueueOverflow,
+                                   "Message queue overflow", "");
+    }
+} else {
+    // Direct mode: process immediately in I/O thread
+    dispatch(msg);
+}
+```
+
+**Key design decisions:**
+
+| Decision | Rationale |
+|----------|-----------|
+| `try_push()` is **non-blocking** | I/O thread must never stall — WebSocket heartbeats depend on it |
+| Drop on full (not block) | Backpressure: slow consumer loses messages, I/O stays responsive |
+| `notify_one()` after push | Wakes sleeping consumer without busy-wait |
+| `std::move(msg)` | Transfers heap ownership (`OrderBook` vectors, balance maps) — zero copy |
+
+### Consumer: Dispatcher Thread Pop
+
+📄 **File:** `src/client/dispatch.cpp` — `dispatcher_loop()`
+
+```cpp
+// Inside dispatcher_loop() — consumer side
+while (!stop_requested_) {
+    Message* msg = queue_->front();   // Peek (non-blocking)
+
+    if (msg) {
+        auto recv_time = msg->receive_time;
+
+        // Check for gaps in sequence numbers
+        if (msg->has_sequence) {
+            gap_tracker_.check(msg->channel, msg->symbol, msg->sequence);
+        }
+
+        dispatch(*msg);               // Invoke user callbacks
+        queue_->pop();                 // Remove from queue
+
+        // Track latency (lock-free CAS)
+        msg_processed_.fetch_add(1, std::memory_order_relaxed);
+        auto latency_us = duration_cast<microseconds>(now - recv_time).count();
+        // Update max latency with compare_exchange_weak (no mutex)
+    } else {
+        // Queue empty — wait efficiently
+        std::unique_lock<std::mutex> lock(queue_cv_mutex_);
+        queue_cv_.wait(lock, [this] {
+            return queue_->front() != nullptr || stop_requested_.load();
+        });
+    }
+}
+```
+
+**Key design decisions:**
+
+| Decision | Rationale |
+|----------|-----------|
+| `front()` + `pop()` (not `try_pop()`) | Allows referencing message data before removal |
+| `condition_variable` for idle wait | Zero CPU when no messages — unlike busy-wait spin loops |
+| `compare_exchange_weak` for max latency | Lock-free update of the latency high-water mark |
+| Gap detection before dispatch | Sequence discontinuities detected before user sees the data |
+
+### Direct Mode Bypass
+
+The queue is entirely **optional**. Setting `use_queue(false)` in the Builder bypasses it:
+
+```cpp
+auto config = ClientConfig::Builder()
+    .url("wss://ws.kraken.com")
+    .use_queue(false)    // ← Messages dispatched directly in I/O thread
+    .build();
+```
+
+| Mode | Latency | I/O Blocking | Thread Safety |
+|------|---------|-------------|---------------|
+| **Queue mode** (default) | +12 ns per message | Never | Callbacks run on dispatcher thread |
+| **Direct mode** | Zero queue overhead | Blocked during callbacks | Callbacks run on I/O thread |
+
+**When to use direct mode:** Ultra-low-latency scenarios where callback execution is guaranteed to be fast (< 1 μs).
+
+### The Pluggable Interface
+
+The queue is abstracted behind `MessageQueue<T>`, allowing users to swap implementations:
+
+📄 **File:** `include/kraken/queue.hpp`
+
+```cpp
+template<typename T>
+class MessageQueue {
+public:
+    virtual bool try_push(T value) = 0;   // Producer: non-blocking
+    virtual T* front() = 0;              // Consumer: peek
+    virtual void pop() = 0;              // Consumer: remove
+    virtual size_t size() const = 0;     // Approximate count
+};
+```
+
+The default `DefaultMessageQueue<T>` wraps `rigtorp::SPSCQueue<T>` behind PIMPL — the third-party header never leaks into the public API. You can implement a custom queue (priority queue, unbounded queue, different allocator) by inheriting `MessageQueue<T>`.
+
+### What Could Be Improved
+
+| Improvement | Benefit | Trade-off |
+|-------------|---------|-----------|
+| **Type-erased ring buffer** | Each message occupies only its actual size | Fragmentation + complexity |
+| **Priority queues** | Process Ticker/Trade before Heartbeat | Breaks FIFO ordering guarantees |
+| **Per-channel queues** | Parallel dispatch across channels | Multiple dispatcher threads, harder state management |
+| **Batch drain** | Pop N messages, then process all | Reduces `condition_variable` wake-ups, higher throughput |
+| **Memory pool allocator** | Reduce heap allocation for `OrderBook` vectors | Fixed-size pool limits flexibility |
+
+> 📘 For queue configuration via environment variables, see [`docs/ENVIRONMENT_VARIABLES.md`](../docs/ENVIRONMENT_VARIABLES.md)
+>
+> 📘 For queue stress testing details, see [`docs/STRESS_TESTING.md`](../docs/STRESS_TESTING.md)
+>
+> 📘 For queue benchmark results (11-12 ns push/pop), see [`docs/TEST_RESULTS.md`](../docs/TEST_RESULTS.md)
+
 ---
 
 ## 3.3 `std::atomic` — Lock-Free Counters

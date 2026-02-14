@@ -106,6 +106,31 @@ sequenceDiagram
 | Strategy Evaluation | ~100 ns per strategy |
 | **Total SDK overhead** | **< 5 μs** |
 
+### Producer / Consumer Code Paths
+
+The I/O thread (producer) and dispatcher thread (consumer) interact through the SPSC queue:
+
+```cpp
+// Producer (I/O thread): non-blocking push
+if (queue_->try_push(std::move(msg))) {
+    queue_cv_.notify_one();     // Wake consumer
+} else {
+    msg_dropped_.fetch_add(1);  // Backpressure: drop + count
+}
+
+// Consumer (dispatcher thread): peek-dispatch-pop
+if (Message* msg = queue_->front()) {
+    dispatch(*msg);             // Invoke user callbacks + strategies
+    queue_->pop();              // Remove from ring buffer
+} else {
+    queue_cv_.wait(lock, ...);  // Sleep until notified
+}
+```
+
+The queue is **optional** — `use_queue(false)` dispatches directly in the I/O thread for minimal latency.
+
+> 📘 For the full deep-dive on SPSC queue internals, message sizing, and improvement ideas, see [Chapter 3: Lock-Free SPSC Queue](03_CONCURRENCY.md#32-lock-free-spsc-queue)
+
 ---
 
 ## 4.3 Modular Architecture
