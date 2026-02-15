@@ -32,8 +32,8 @@ stateDiagram-v2
 
     state Closed {
         [*] --> Normal
-        Normal --> Normal: Connection success ✅\n(reset failure count)
-        Normal --> CountFailure: Connection failure ❌\n(increment counter)
+        Normal --> Normal: Connection success ✅ (reset failure count)
+        Normal --> CountFailure: Connection failure ❌ (increment counter)
         CountFailure --> Normal: failures < threshold
     }
 
@@ -41,7 +41,7 @@ stateDiagram-v2
 
     state Open {
         [*] --> Rejecting
-        Rejecting --> Rejecting: All connection attempts\nrejected immediately ⛔
+        Rejecting --> Rejecting: All connection attempts rejected immediately ⛔
     }
 
     Open --> HalfOpen: 30s timeout elapsed ⏱️
@@ -175,14 +175,14 @@ Imagine a bucket that holds tokens. Tokens are added at a steady rate (e.g., 10/
 ```mermaid
 graph TD
     subgraph "Token Bucket"
-        Bucket["🪣 Bucket\n(max: 20 tokens)"]
+        Bucket["🪣 Bucket<br/>(max: 20 tokens)"]
         Refill["⏱️ Refill Rate: 10 tokens/sec"]
         Refill -->|+1 token every 100ms| Bucket
     end
 
     MSG["Outbound Message"] --> Check{Tokens > 0?}
-    Check -- Yes --> Send["✅ Send\n(consume 1 token)"]
-    Check -- No --> Wait["⏳ Wait\n(until token available)"]
+    Check -- Yes --> Send["✅ Send<br/>(consume 1 token)"]
+    Check -- No --> Wait["⏳ Wait<br/>(until token available)"]
     Wait -.-> Check
 
     Bucket --> Check
@@ -241,14 +241,14 @@ Kraken sends a CRC32 checksum with each order book snapshot. The SDK computes it
 
 ```mermaid
 flowchart LR
-    Update["Book Update\n(from exchange)"] --> Apply["Apply Delta\nto Local Book"]
-    Apply --> Compute["Compute CRC32\nof Local State"]
-    Exchange["Exchange CRC32\n(from message)"] --> Compare{Match?}
+    Update["Book Update<br/>(from exchange)"] --> Apply["Apply Delta<br/>to Local Book"]
+    Apply --> Compute["Compute CRC32<br/>of Local State"]
+    Exchange["Exchange CRC32<br/>(from message)"] --> Compare{Match?}
     Compute --> Compare
 
-    Compare -- Yes --> Valid["✅ is_valid = true\n(Data is correct)"]
-    Compare -- No --> Invalid["⚠️ is_valid = false\n(Data corrupted!)"]
-    Invalid --> Recover["Request fresh\nsnapshot"]
+    Compare -- Yes --> Valid["✅ is_valid = true<br/>(Data is correct)"]
+    Compare -- No --> Invalid["⚠️ is_valid = false<br/>(Data corrupted!)"]
+    Invalid --> Recover["Request fresh<br/>snapshot"]
 ```
 
 ### How CRC32 Works

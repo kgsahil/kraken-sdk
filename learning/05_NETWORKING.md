@@ -74,9 +74,9 @@ Boost.Beast is built on top of Asio and adds **HTTP and WebSocket** protocol sup
 
 ```mermaid
 graph TD
-    App["Kraken SDK"] --> Beast["Boost.Beast\n(WebSocket client)"]
-    Beast --> Asio["Boost.Asio\n(Async I/O, event loop)"]
-    Asio --> SSL["OpenSSL\n(TLS encryption)"]
+    App["Kraken SDK"] --> Beast["Boost.Beast<br/>(WebSocket client)"]
+    Beast --> Asio["Boost.Asio<br/>(Async I/O, event loop)"]
+    Asio --> SSL["OpenSSL<br/>(TLS encryption)"]
     SSL --> OS["OS TCP/IP Stack"]
     OS --> Net["Network"]
 ```

@@ -24,18 +24,18 @@ Observability answers three questions about your running system:
 ```mermaid
 graph TD
     subgraph "Kraken SDK"
-        Logs["spdlog\n(Structured Logs)"]
-        Metrics["Metrics API\n(atomic counters)"]
-        OTLP["OTLP Exporter\n(HTTP)"]
-        Prom["Prometheus Server\n(HTTP /metrics)"]
+        Logs["spdlog<br/>(Structured Logs)"]
+        Metrics["Metrics API<br/>(atomic counters)"]
+        OTLP["OTLP Exporter<br/>(HTTP)"]
+        Prom["Prometheus Server<br/>(HTTP /metrics)"]
     end
 
     subgraph "External Systems"
-        Files["Log Files\n(rotated)"]
-        Console["Console\n(colored output)"]
-        Jaeger["Jaeger / Tempo\n(Trace viewer)"]
-        Grafana["Grafana\n(Dashboards)"]
-        PromServer["Prometheus Server\n(Scraper)"]
+        Files["Log Files<br/>(rotated)"]
+        Console["Console<br/>(colored output)"]
+        Jaeger["Jaeger / Tempo<br/>(Trace viewer)"]
+        Grafana["Grafana<br/>(Dashboards)"]
+        PromServer["Prometheus Server<br/>(Scraper)"]
     end
 
     Logs --> Files
@@ -239,7 +239,7 @@ sequenceDiagram
 
     loop Every 15 seconds
         Prom->>SDK: GET /metrics
-        SDK->>Prom: 200 OK\nkraken_messages_received 12345\nkraken_queue_depth 42\n...
+        SDK->>Prom: 200 OK, kraken_messages_received 12345, kraken_queue_depth 42, ...
         Prom->>Prom: Store in time-series DB
     end
 ```

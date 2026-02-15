@@ -50,8 +50,8 @@ classDiagram
     }
 
     KrakenClient --> Impl : "owns (hidden)"
-    note for KrakenClient "Public header: client.hpp\nUsers see ONLY this"
-    note for Impl "Private header: client_impl.hpp\nUsers NEVER see this"
+    note for KrakenClient "Public header: client.hpp<br/>Users see ONLY this"
+    note for Impl "Private header: client_impl.hpp<br/>Users NEVER see this"
 ```
 
 ### How It Works
@@ -532,24 +532,24 @@ if (error) return false;    // ✅ lock_guard destructor unlocks automatically
 ```mermaid
 graph LR
     subgraph Creational
-        Builder["Builder\n(Config, Strategies,\nBackoff, Telemetry)"]
-        Factory["Factory Method\n(Backoff presets)"]
-        Prototype["Prototype\n(clone())"]
+        Builder["Builder<br/>(Config, Strategies,<br/>Backoff, Telemetry)"]
+        Factory["Factory Method<br/>(Backoff presets)"]
+        Prototype["Prototype<br/>(clone())"]
     end
 
     subgraph Structural
-        PIMPL["PIMPL\n(Client/Impl)"]
-        Composite["Composite\n(CompositeStrategy)"]
+        PIMPL["PIMPL<br/>(Client/Impl)"]
+        Composite["Composite<br/>(CompositeStrategy)"]
     end
 
     subgraph Behavioral
-        Strategy["Strategy\n(Backoff, Alerts)"]
-        Observer["Observer\n(Callbacks)"]
-        Template["Template Method\n(AlertStrategy)"]
+        Strategy["Strategy<br/>(Backoff, Alerts)"]
+        Observer["Observer<br/>(Callbacks)"]
+        Template["Template Method<br/>(AlertStrategy)"]
     end
 
     subgraph Idioms
-        RAII["RAII\n(locks, memory)"]
+        RAII["RAII<br/>(locks, memory)"]
     end
 ```
 

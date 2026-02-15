@@ -140,16 +140,16 @@ The SDK is organized into **four modules**, each with its own `include/` and `sr
 ```mermaid
 graph TD
     subgraph "Public API (include/kraken/)"
-        Core["core/\nclient.hpp\nconfig.hpp\ntypes.hpp\nerror.hpp"]
-        Strat["strategies/\nbase.hpp\nprice_alert.hpp\nvolume_spike.hpp\nspread_alert.hpp\ncomposite.hpp\npresets.hpp\nstrategy_config.hpp\nstrategies.hpp"]
-        Telem["telemetry/\ntelemetry.hpp\nconfig.hpp\nmetrics_collector.hpp\nprometheus_server.hpp\notlp_exporter.hpp"]
-        Conn["connection/\nbackoff.hpp\ncircuit_breaker.hpp\ngap_detector.hpp\nconnection_config.hpp"]
+        Core["core/<br/>client.hpp<br/>config.hpp<br/>types.hpp<br/>error.hpp"]
+        Strat["strategies/<br/>base.hpp<br/>price_alert.hpp<br/>volume_spike.hpp<br/>spread_alert.hpp<br/>composite.hpp<br/>presets.hpp<br/>strategy_config.hpp<br/>strategies.hpp"]
+        Telem["telemetry/<br/>telemetry.hpp<br/>config.hpp<br/>metrics_collector.hpp<br/>prometheus_server.hpp<br/>otlp_exporter.hpp"]
+        Conn["connection/<br/>backoff.hpp<br/>circuit_breaker.hpp<br/>gap_detector.hpp<br/>connection_config.hpp"]
     end
 
     subgraph "Implementation (src/)"
-        CoreImpl["core/\nclient.cpp\nconfig.cpp"]
-        ClientImpl["client/\nlifecycle.cpp\ncallbacks.cpp\nsubscriptions.cpp\nstrategies.cpp\ndispatch.cpp\nreconnect.cpp\nsnapshots.cpp\nmetrics.cpp\nstrategy_engine_impl.cpp\nsubscription_impl.cpp"]
-        Internal["internal/\nclient_impl.hpp\nparser.hpp\nbook_engine.hpp\nconnection.hpp\nauth.hpp"]
+        CoreImpl["core/<br/>client.cpp<br/>config.cpp"]
+        ClientImpl["client/<br/>lifecycle.cpp<br/>callbacks.cpp<br/>subscriptions.cpp<br/>strategies.cpp<br/>dispatch.cpp<br/>reconnect.cpp<br/>snapshots.cpp<br/>metrics.cpp<br/>strategy_engine_impl.cpp<br/>subscription_impl.cpp"]
+        Internal["internal/<br/>client_impl.hpp<br/>parser.hpp<br/>book_engine.hpp<br/>connection.hpp<br/>auth.hpp"]
     end
 
     Core --> CoreImpl
@@ -256,9 +256,9 @@ The SDK supports **three layers** of configuration, with a clear priority order:
 graph TD
     subgraph Priority["Configuration Priority (highest → lowest)"]
         direction TB
-        Builder["1. Builder Pattern\n(Programmatic)"]
-        Env["2. Environment Variables\n(Deployment)"]
-        File["3. Config File (.cfg)\n(Examples)"]
+        Builder["1. Builder Pattern<br/>(Programmatic)"]
+        Env["2. Environment Variables<br/>(Deployment)"]
+        File["3. Config File (.cfg)<br/>(Examples)"]
         Defaults["4. Hardcoded Defaults"]
     end
 
@@ -350,10 +350,10 @@ The dispatcher uses the `MessageType` enum to route messages to the correct hand
 
 ```mermaid
 flowchart LR
-    MSG["Message\n(type + data)"] --> SW{switch type}
-    SW -->|Ticker| T["invoke on_ticker\n+ strategy evaluate"]
+    MSG["Message<br/>(type + data)"] --> SW{switch type}
+    SW -->|Ticker| T["invoke on_ticker<br/>+ strategy evaluate"]
     SW -->|Trade| TR["invoke on_trade"]
-    SW -->|Book| B["update book engine\n+ invoke on_book\n+ strategy evaluate"]
+    SW -->|Book| B["update book engine<br/>+ invoke on_book<br/>+ strategy evaluate"]
     SW -->|OHLC| O["invoke on_ohlc"]
     SW -->|Order| OR["invoke on_order"]
     SW -->|OwnTrade| OT["invoke on_own_trade"]

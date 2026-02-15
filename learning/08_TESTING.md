@@ -23,9 +23,9 @@
 graph TD
     subgraph "Testing Pyramid"
         direction BT
-        Unit["Unit Tests (Fast)\n~250 test cases\nParser, Book Engine, Config, etc."]
-        Integration["Integration Tests\n~50 test cases\nEnd-to-end message flow"]
-        Stress["Stress & Failure Tests\n~40 test cases\nEdge cases, breaking scenarios"]
+        Unit["Unit Tests (Fast)<br/>~250 test cases<br/>Parser, Book Engine, Config, etc."]
+        Integration["Integration Tests<br/>~50 test cases<br/>End-to-end message flow"]
+        Stress["Stress & Failure Tests<br/>~40 test cases<br/>Edge cases, breaking scenarios"]
     end
 
     Unit --> Integration --> Stress
@@ -245,12 +245,12 @@ Stress tests push the system beyond normal operating conditions to find breaking
 ```mermaid
 graph TD
     subgraph "Stress Test Categories"
-        QO["Queue Overflow\n(push faster than pop)"]
-        RC["Rapid Reconnection\n(connect/disconnect cycles)"]
-        CC["Concurrent Callbacks\n(slam from multiple threads)"]
-        MF["Malformed Input\n(garbage JSON, truncated messages)"]
-        CE["Callback Exceptions\n(callbacks that throw)"]
-        MP["Memory Pressure\n(large order books, many subscriptions)"]
+        QO["Queue Overflow<br/>(push faster than pop)"]
+        RC["Rapid Reconnection<br/>(connect/disconnect cycles)"]
+        CC["Concurrent Callbacks<br/>(slam from multiple threads)"]
+        MF["Malformed Input<br/>(garbage JSON, truncated messages)"]
+        CE["Callback Exceptions<br/>(callbacks that throw)"]
+        MP["Memory Pressure<br/>(large order books, many subscriptions)"]
     end
 ```
 
@@ -336,16 +336,16 @@ Static analysis catches bugs that tests might miss — like undefined behavior, 
 
 ```mermaid
 flowchart LR
-    Push["Push / PR"] --> Build["Build\n(CMake + GCC/Clang)"]
-    Build --> Lint["Static Analysis\n(Clang-Tidy)"]
-    Build --> Unit["Unit Tests\n(ctest)"]
+    Push["Push / PR"] --> Build["Build<br/>(CMake + GCC/Clang)"]
+    Build --> Lint["Static Analysis<br/>(Clang-Tidy)"]
+    Build --> Unit["Unit Tests<br/>(ctest)"]
     Build --> Stress["Stress Tests"]
     Build --> Bench["Benchmarks"]
     Unit --> Report["Test Report"]
     Stress --> Report
     Bench --> Report
     Lint --> Report
-    Report --> Badge["CI Badge\n✅ / ❌"]
+    Report --> Badge["CI Badge<br/>✅ / ❌"]
 ```
 
 ### Pipeline Steps
