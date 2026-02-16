@@ -5,6 +5,7 @@
 ---
 
 ## Table of Contents
+- [High-Level Design (HLD)](#high-level-design-hld)
 - [4.1 Event-Driven Architecture](#41-event-driven-architecture)
 - [4.2 End-to-End Data Flow](#42-end-to-end-data-flow)
 - [4.3 Modular Architecture](#43-modular-architecture)
@@ -13,6 +14,119 @@
 - [4.6 Subscription Lifecycle](#46-subscription-lifecycle)
 - [4.7 Message Dispatch Table](#47-message-dispatch-table)
 - [4.8 Error Handling Strategy](#48-error-handling-strategy)
+
+---
+
+## High-Level Design (HLD)
+
+The following diagram shows the **complete architecture** of the SDK — module boundaries, thread ownership, data types at each interface, external dependencies, and optional components.
+
+```mermaid
+graph TB
+    subgraph "User Application"
+        UserCode["User Code<br/>(callbacks, strategies)"]
+    end
+
+    subgraph "Public API Layer (include/kraken/)"
+        direction LR
+        KrakenClient["KrakenClient<br/><i>core/client.hpp</i>"]
+        Builder["ClientConfig::Builder<br/><i>core/config.hpp</i>"]
+        Types["Data Types<br/><i>Ticker, Trade, OrderBook,<br/>OHLC, Order, OwnTrade, Balance</i>"]
+        StratAPI["AlertStrategy (abstract)<br/><i>strategies/base.hpp</i>"]
+        TelAPI["TelemetryConfig<br/><i>telemetry/config.hpp</i>"]
+        SubAPI["Subscription Handle<br/><i>subscription.hpp</i>"]
+    end
+
+    subgraph "Internal Implementation — PIMPL Boundary"
+        direction TB
+
+        subgraph "I/O Thread (io_thread_)"
+            IOLoop["io_loop()<br/><i>lifecycle.cpp</i>"]
+            WS["WebSocket Client<br/><i>Boost.Beast + OpenSSL</i>"]
+            Parser["JSON Parser<br/><i>RapidJSON zero-copy</i>"]
+            RateLimiter["Rate Limiter<br/><i>Token Bucket</i>"]
+            Reconnect["Reconnect Engine<br/><i>Exp Backoff + Jitter</i>"]
+            CB["Circuit Breaker<br/><i>Closed → Open → HalfOpen</i>"]
+        end
+
+        subgraph "Queue Layer (optional — use_queue config)"
+            QueueIF["MessageQueue﹤Message﹥<br/><i>queue.hpp — abstract interface</i>"]
+            DefaultQ["DefaultMessageQueue<br/><i>wraps rigtorp::SPSCQueue</i><br/>(PIMPL, 11-12 ns)"]
+            CV["condition_variable<br/><i>notify_one / wait</i>"]
+        end
+
+        subgraph "Dispatcher Thread (dispatch_thread_)"
+            DispLoop["dispatcher_loop()<br/><i>dispatch.cpp</i>"]
+            GapDet["Gap Detector<br/><i>sequence tracking</i>"]
+            BookEngine["Book Engine<br/><i>std::map + CRC32</i>"]
+            StratEngine["Strategy Engine<br/><i>evaluate all strategies</i>"]
+            CallbackInv["Callback Invoker<br/><i>on_ticker, on_trade,<br/>on_book, on_ohlc, ...</i>"]
+        end
+
+        subgraph "Observability (telemetry/)"
+            Metrics["Atomic Metrics<br/><i>std::atomic counters</i>"]
+            OTel["OTLP Exporter<br/><i>HTTP POST</i>"]
+            Prom["Prometheus Server<br/><i>HTTP GET :9090</i>"]
+            Logger["spdlog Logger<br/><i>console + file rotation</i>"]
+        end
+    end
+
+    subgraph "External Systems"
+        Kraken["Kraken Exchange<br/><i>wss://ws.kraken.com/v2</i>"]
+        Grafana["Grafana / Jaeger<br/><i>(optional monitoring)</i>"]
+    end
+
+    UserCode --> KrakenClient
+    KrakenClient -.->|"PIMPL"| IOLoop
+    Builder --> KrakenClient
+    StratAPI --> StratEngine
+
+    WS <-->|"wss:// TLS"| Kraken
+    IOLoop --> WS
+    WS --> Parser
+    Parser -->|"Message struct<br/>(variant of 11 types)"| QueueIF
+    QueueIF --> DefaultQ
+    IOLoop --> RateLimiter
+    IOLoop --> Reconnect
+    Reconnect --> CB
+
+    DefaultQ -->|"try_push / front+pop"| DispLoop
+    CV -.->|"notify / wait"| DispLoop
+
+    DispLoop --> GapDet
+    DispLoop --> BookEngine
+    DispLoop --> CallbackInv
+    DispLoop --> StratEngine
+    CallbackInv --> UserCode
+    StratEngine --> UserCode
+
+    DispLoop --> Metrics
+    Metrics --> OTel
+    Metrics --> Prom
+    OTel -->|"OTLP HTTP"| Grafana
+    Prom -->|":9090"| Grafana
+```
+
+### What This Diagram Shows (vs the README Flowchart)
+
+| Aspect | README Flowchart | This HLD |
+|--------|-----------------|----------|
+| **Thread boundaries** | Not shown | I/O Thread vs Dispatcher Thread clearly separated |
+| **Module boundaries** | Flat boxes | Public API / Internal (PIMPL) / External grouped |
+| **Data types at interfaces** | "Push Data" | `Message struct (variant of 11 types)` |
+| **Dependencies** | Not shown | Boost.Beast, RapidJSON, rigtorp, spdlog, OpenSSL |
+| **Optional components** | Not shown | Queue layer marked optional with `use_queue` config |
+| **Resilience components** | Missing | Circuit breaker, gap detector, rate limiter, reconnect engine |
+| **Observability stack** | Missing | Atomic metrics → OTLP/Prometheus → Grafana pipeline |
+| **Design patterns** | Not visible | PIMPL boundary, abstract `MessageQueue` interface |
+
+### Thread Ownership Summary
+
+| Thread | Owns | Never Does |
+|--------|------|-----------|
+| **I/O Thread** (`io_thread_`) | WebSocket I/O, JSON parsing, queue push, heartbeat replies, reconnection, rate limiting | Execute user callbacks, evaluate strategies |
+| **Dispatcher Thread** (`dispatch_thread_`) | Queue pop, gap detection, book updates, callback invocation, strategy evaluation, metrics | Network I/O, JSON parsing |
+| **User's Thread** (`main`) | `KrakenClient` construction, `subscribe()`, `add_alert()`, `run()` / `run_async()` | Direct access to internal state |
 
 ---
 
