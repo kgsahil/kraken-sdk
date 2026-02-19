@@ -154,7 +154,7 @@ public:
         }
     }
     
-    std::string get_alert_message(const Ticker& ticker) const override {
+    std::string get_alert_message(const Ticker& /*ticker*/) const override {
         std::string msg = name() + " triggered";
         if (logic_ == Logic::AND) {
             msg += " (all conditions met)";
@@ -173,13 +173,13 @@ private:
                 [&check_func](const auto& s) {
                     return !s->is_enabled() || check_func(s);
                 });
-        } else {
-            // Any can return true
-            return std::any_of(strategies_.begin(), strategies_.end(),
-                [&check_func](const auto& s) {
-                    return s->is_enabled() && check_func(s);
-                });
         }
+        
+        // Any can return true
+        return std::any_of(strategies_.begin(), strategies_.end(),
+            [&check_func](const auto& s) {
+                return s->is_enabled() && check_func(s);
+            });
     }
     
     Logic logic_;

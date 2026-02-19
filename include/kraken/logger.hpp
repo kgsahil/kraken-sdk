@@ -42,17 +42,17 @@ public:
     static bool is_initialized();
 
 private:
-    static std::shared_ptr<spdlog::logger> logger_;
-    static bool initialized_;
+    static std::shared_ptr<spdlog::logger> logger_; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+    static bool initialized_; // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 };
 
 // Convenience macros for logging
-#define KRAKEN_LOG_TRACE(...)    if (kraken::Logger::is_initialized()) kraken::Logger::get()->trace(__VA_ARGS__)
-#define KRAKEN_LOG_DEBUG(...)    if (kraken::Logger::is_initialized()) kraken::Logger::get()->debug(__VA_ARGS__)
-#define KRAKEN_LOG_INFO(...)     if (kraken::Logger::is_initialized()) kraken::Logger::get()->info(__VA_ARGS__)
-#define KRAKEN_LOG_WARN(...)     if (kraken::Logger::is_initialized()) kraken::Logger::get()->warn(__VA_ARGS__)
-#define KRAKEN_LOG_ERROR(...)    if (kraken::Logger::is_initialized()) kraken::Logger::get()->error(__VA_ARGS__)
-#define KRAKEN_LOG_CRITICAL(...) if (kraken::Logger::is_initialized()) kraken::Logger::get()->critical(__VA_ARGS__)
+#define KRAKEN_LOG_TRACE(...)    if (kraken::Logger::is_initialized()) kraken::Logger::get()->trace(__VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define KRAKEN_LOG_DEBUG(...)    if (kraken::Logger::is_initialized()) kraken::Logger::get()->debug(__VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define KRAKEN_LOG_INFO(...)     if (kraken::Logger::is_initialized()) kraken::Logger::get()->info(__VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define KRAKEN_LOG_WARN(...)     if (kraken::Logger::is_initialized()) kraken::Logger::get()->warn(__VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define KRAKEN_LOG_ERROR(...)    if (kraken::Logger::is_initialized()) kraken::Logger::get()->error(__VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
+#define KRAKEN_LOG_CRITICAL(...) if (kraken::Logger::is_initialized()) kraken::Logger::get()->critical(__VA_ARGS__) // NOLINT(cppcoreguidelines-macro-usage)
 
 } // namespace kraken
 
