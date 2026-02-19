@@ -8,6 +8,8 @@
 #include <algorithm>
 #include <cctype>
 #include <string>
+#include <vector>
+#include "kraken/core/types.hpp"
 
 namespace kraken {
 
@@ -32,6 +34,7 @@ double get_double(const rapidjson::Value& obj, const char* key, double def = 0.0
             try {
                 return std::stod(obj[key].GetString());
             } catch (...) {
+                // NOLINT(bugprone-empty-catch)
                 // Ignore conversion errors, return default value
             }
         }
@@ -55,6 +58,7 @@ bool get_double_strict(const rapidjson::Value& obj, const char* key, double& out
             out = std::stod(v.GetString());
             return true;
         } catch (...) {
+            // NOLINT(bugprone-empty-catch)
             return false;
         }
     }
@@ -83,7 +87,7 @@ Trade parse_trade(const rapidjson::Value& data, const std::string& symbol) {
     t.price = get_double(data, "price");
     t.quantity = get_double(data, "qty");
     
-    std::string side = get_string(data, "side");
+    const std::string side = get_string(data, "side");
     t.side = (side == "sell") ? Side::Sell : Side::Buy;
     t.timestamp = get_string(data, "timestamp");
     
@@ -157,7 +161,7 @@ Order parse_order(const rapidjson::Value& data) {
     order.timestamp = get_string(data, "timestamp");
     order.userref = get_string(data, "userref");
     
-    std::string side_str = get_string(data, "side");
+    const std::string side_str = get_string(data, "side");
     order.side = (side_str == "sell") ? Side::Sell : Side::Buy;
     
     std::string type_str = get_string(data, "type");
@@ -190,7 +194,7 @@ OwnTrade parse_own_trade(const rapidjson::Value& data) {
     trade.fee_currency = get_string(data, "fee_currency");
     trade.timestamp = get_string(data, "timestamp");
     
-    std::string side_str = get_string(data, "side");
+    const std::string side_str = get_string(data, "side");
     trade.side = (side_str == "sell") ? Side::Sell : Side::Buy;
     
     return trade;

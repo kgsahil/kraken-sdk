@@ -10,7 +10,7 @@
 
 namespace kraken {
 
-void KrakenClient::Impl::io_loop() {
+void KrakenClient::Impl::io_loop() { // NOLINT(readability-function-cognitive-complexity)
     while (!stop_requested_) {
         if (!connection_ || !connection_->is_open()) {
             if (!stop_requested_) {
@@ -176,6 +176,7 @@ void KrakenClient::Impl::dispatcher_loop() {
     }
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
 void KrakenClient::Impl::dispatch(Message& msg) {
     // Dispatch to callbacks under shared lock
     {

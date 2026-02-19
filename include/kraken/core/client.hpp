@@ -14,11 +14,16 @@
 #include "../strategies/base.hpp"
 
 #include <memory>
-#include <future>
 #include <optional>
 #include <unordered_map>
+#include <vector>
+#include <string>
+#include <cstddef>
+#include <utility>
 
 namespace kraken {
+
+struct Telemetry;
 
 /**
  * @brief Kraken WebSocket API client

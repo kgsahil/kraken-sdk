@@ -2,6 +2,9 @@
 /// @brief Metrics collection
 
 #include "internal/client_impl.hpp"
+#include "kraken/metrics.hpp"
+#include "kraken/core/client.hpp"
+#include <cstddef>
 
 namespace kraken {
 

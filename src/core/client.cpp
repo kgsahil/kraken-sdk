@@ -1,5 +1,7 @@
 #include "kraken/core/client.hpp"
 #include "internal/client_impl.hpp"
+#include <memory>
+#include <utility>
 
 namespace kraken {
 

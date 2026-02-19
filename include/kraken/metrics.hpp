@@ -8,7 +8,10 @@
 
 #include "core/types.hpp"
 #include <chrono>
-#include <atomic>
+#include <cstdint>
+#include <cstddef>
+#include <sstream>
+#include <iomanip>
 
 namespace kraken {
 
@@ -43,36 +46,38 @@ struct Metrics {
         return std::chrono::duration_cast<std::chrono::seconds>(elapsed);
     }
     
+    
     /// @brief Format uptime as HH:MM:SS
     /// @return Human-readable uptime string (e.g., "01:23:45")
     std::string uptime_string() const {
         auto secs = uptime().count();
-        int hours = secs / 3600;
-        int mins = (secs % 3600) / 60;
-        int s = secs % 60;
+        int hours = static_cast<int>(secs / 3600);
+        int mins = static_cast<int>((secs % 3600) / 60);
+        int s = static_cast<int>(secs % 60);
         
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%02d:%02d:%02d", hours, mins, s);
-        return std::string(buf);
+        std::ostringstream oss;
+        oss << std::setfill('0') << std::setw(2) << hours << ":"
+            << std::setw(2) << mins << ":"
+            << std::setw(2) << s;
+        return oss.str();
     }
     
     /// @brief Convert to JSON string for web dashboards
     /// @return JSON representation of all metrics
     std::string to_json() const {
-        char buf[512];
-        snprintf(buf, sizeof(buf),
-            R"({"messages_received":%llu,"messages_processed":%llu,"messages_dropped":%llu,"queue_depth":%zu,"connection_state":"%s","latency_max_us":%lld,"heartbeats_received":%llu,"last_heartbeat_age_ms":%lld,"uptime_seconds":%lld,"msg_per_sec":%.2f})",
-            static_cast<unsigned long long>(messages_received),
-            static_cast<unsigned long long>(messages_processed),
-            static_cast<unsigned long long>(messages_dropped),
-            queue_depth,
-            to_string(connection_state),
-            static_cast<long long>(latency_max_us.count()),
-            static_cast<unsigned long long>(heartbeats_received),
-            static_cast<long long>(last_heartbeat_age.count()),
-            static_cast<long long>(uptime().count()),
-            messages_per_second());
-        return std::string(buf);
+        std::ostringstream oss;
+        oss << "{\"messages_received\":" << messages_received
+            << ",\"messages_processed\":" << messages_processed
+            << ",\"messages_dropped\":" << messages_dropped
+            << ",\"queue_depth\":" << queue_depth
+            << ",\"connection_state\":\"" << to_string(connection_state) << "\""
+            << ",\"latency_max_us\":" << latency_max_us.count()
+            << ",\"heartbeats_received\":" << heartbeats_received
+            << ",\"last_heartbeat_age_ms\":" << last_heartbeat_age.count()
+            << ",\"uptime_seconds\":" << uptime().count()
+            << ",\"msg_per_sec\":" << std::fixed << std::setprecision(2) << messages_per_second()
+            << "}";
+        return oss.str();
     }
 };
 

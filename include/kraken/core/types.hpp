@@ -7,10 +7,10 @@
 
 #include <string>
 #include <vector>
-#include <chrono>
 #include <functional>
-#include <limits>
 #include <unordered_map>
+#include <cstdint>
+#include <array>
 
 namespace kraken {
 
@@ -64,7 +64,7 @@ enum class ErrorCode : std::uint8_t {
 /// @brief Connection state machine
 /// 
 /// Tracks the current state of the WebSocket connection.
-enum class ConnectionState {
+enum class ConnectionState : std::uint8_t {
     Disconnected,  ///< Not connected
     Connecting,    ///< Connection attempt in progress
     Connected,     ///< Connected and ready
