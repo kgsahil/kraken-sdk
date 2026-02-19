@@ -203,49 +203,103 @@ stateDiagram-v2
 
 ## 🏗️ Architecture
 
-### System Components
+### High-Level Design
 
 ```mermaid
-graph TD
-    User[User Application]
-    subgraph "Kraken SDK"
-        Client[KrakenClient]
-        Net[Network I/O]
-        Queue[SPSC Queue]
-        Disp[Dispatcher]
-        Strat[Strategy Engine]
+graph TB
+    subgraph "User Application"
+        UserCode["User Code<br/>(callbacks, strategies)"]
     end
-    
-    User -->|Subscribe| Client
-    Client -->|Manage| Net
-    Net -->|Push Data| Queue
-    Queue -->|Pop Data| Disp
-    Disp -->|1. OnTicker| User
-    Disp -->|2. Evaluate| Strat
-    Strat -->|3. OnAlert| User
+
+    subgraph "Public API Layer (include/kraken/)"
+        direction LR
+        KrakenClient["KrakenClient<br/><i>core/client.hpp</i>"]
+        Builder["ClientConfig::Builder<br/><i>core/config.hpp</i>"]
+        Types["Data Types<br/><i>Ticker, Trade, OrderBook,<br/>OHLC, Order, OwnTrade, Balance</i>"]
+        StratAPI["AlertStrategy (abstract)<br/><i>strategies/base.hpp</i>"]
+        TelAPI["TelemetryConfig<br/><i>telemetry/config.hpp</i>"]
+        SubAPI["Subscription Handle<br/><i>subscription.hpp</i>"]
+    end
+
+    subgraph "Internal Implementation — PIMPL Boundary"
+        direction TB
+
+        subgraph "I/O Thread (io_thread_)"
+            IOLoop["io_loop()<br/><i>lifecycle.cpp</i>"]
+            WS["WebSocket Client<br/><i>Boost.Beast + OpenSSL</i>"]
+            Parser["JSON Parser<br/><i>RapidJSON zero-copy</i>"]
+            RateLimiter["Rate Limiter<br/><i>Token Bucket</i>"]
+            Reconnect["Reconnect Engine<br/><i>Exp Backoff + Jitter</i>"]
+            CB["Circuit Breaker<br/><i>Closed → Open → HalfOpen</i>"]
+        end
+
+        subgraph "Queue Layer (optional — use_queue config)"
+            QueueIF["MessageQueue﹤Message﹥<br/><i>queue.hpp — abstract interface</i>"]
+            DefaultQ["DefaultMessageQueue<br/><i>wraps rigtorp::SPSCQueue</i><br/>(PIMPL, 11-12 ns)"]
+            CV["condition_variable<br/><i>notify_one / wait</i>"]
+        end
+
+        subgraph "Dispatcher Thread (dispatch_thread_)"
+            DispLoop["dispatcher_loop()<br/><i>dispatch.cpp</i>"]
+            GapDet["Gap Detector<br/><i>sequence tracking</i>"]
+            BookEngine["Book Engine<br/><i>std::map + CRC32</i>"]
+            StratEngine["Strategy Engine<br/><i>evaluate all strategies</i>"]
+            CallbackInv["Callback Invoker<br/><i>on_ticker, on_trade,<br/>on_book, on_ohlc, ...</i>"]
+        end
+
+        subgraph "Observability (telemetry/)"
+            Metrics["Atomic Metrics<br/><i>std::atomic counters</i>"]
+            OTel["OTLP Exporter<br/><i>HTTP POST</i>"]
+            Prom["Prometheus Server<br/><i>HTTP GET :9090</i>"]
+            Logger["spdlog Logger<br/><i>console + file rotation</i>"]
+        end
+    end
+
+    subgraph "External Systems"
+        Kraken["Kraken Exchange<br/><i>wss://ws.kraken.com/v2</i>"]
+        Grafana["Grafana / Jaeger<br/><i>(optional monitoring)</i>"]
+    end
+
+    UserCode --> KrakenClient
+    KrakenClient -.->|"PIMPL"| IOLoop
+    Builder --> KrakenClient
+    StratAPI --> StratEngine
+
+    WS <-->|"wss:// TLS"| Kraken
+    IOLoop --> WS
+    WS --> Parser
+    Parser -->|"Message struct<br/>(variant of 11 types)"| QueueIF
+    QueueIF --> DefaultQ
+    IOLoop --> RateLimiter
+    IOLoop --> Reconnect
+    Reconnect --> CB
+
+    DefaultQ -->|"try_push / front+pop"| DispLoop
+    CV -.->|"notify / wait"| DispLoop
+
+    DispLoop --> GapDet
+    DispLoop --> BookEngine
+    DispLoop --> CallbackInv
+    DispLoop --> StratEngine
+    CallbackInv --> UserCode
+    StratEngine --> UserCode
+
+    DispLoop --> Metrics
+    Metrics --> OTel
+    Metrics --> Prom
+    OTel -->|"OTLP HTTP"| Grafana
+    Prom -->|":9090"| Grafana
 ```
 
-### High-Performance Data Path
+### Thread Ownership
 
-```mermaid
-sequenceDiagram
-    participant Net as Network (IO)
-    participant Q as SPSC Queue
-    participant Disp as Dispatcher
-    participant User as User Callback
-    participant Strat as Strategy Engine
+| Thread | Owns | Never Does |
+|--------|------|-----------|
+| **I/O Thread** (`io_thread_`) | WebSocket I/O, JSON parsing, queue push, heartbeat replies, reconnection, rate limiting | Execute user callbacks, evaluate strategies |
+| **Dispatcher Thread** (`dispatch_thread_`) | Queue pop, gap detection, book updates, callback invocation, strategy evaluation, metrics | Network I/O, JSON parsing |
+| **User's Thread** (`main`) | `KrakenClient` construction, `subscribe()`, `add_alert()`, `run()` / `run_async()` | Direct access to internal state |
 
-    Net->>Q: Push Market Data (Lock Free)
-    Note over Net,Q: ~12ns Latency
-    Q->>Disp: Pop Data
-    
-    Disp->>User: 1. Invoke specific callback (e.g. on_ticker)
-    Disp->>Strat: 2. Evaluate Strategies
-    
-    opt Strategy Match
-        Strat->>User: Fire Alert Callback
-    end
-```
+📖 **Full architecture docs:** [Architecture Deep-Dive](docs/ARCHITECTURE.md)
 
 **Architecture Modes:**
 - **Queue Mode (Default)**: I/O thread → SPSC Queue → Dispatcher thread → Callbacks (I/O never blocks callbacks)
