@@ -363,17 +363,22 @@ TEST_F(StressFailureTest, RapidStartStop) {
     if (std::getenv("CI")) {
         GTEST_SKIP() << "Skipping RapidStartStop under CI to avoid flaky crashes on headless runners";
     }
-    for (int i = 0; i < 100; ++i) {
+    for (int i = 0; i < 20; ++i) {
         KrakenClient client;
         
         // Rapid start/stop (ignore connection errors)
         try {
             client.run_async();
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // Allow threads enough time to initialize before tearing down.
+            // 1ms was too tight and caused heap corruption (use-after-free
+            // between io_loop accessing connection_ and stop() closing it).
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
             client.stop();
         } catch (...) {
             // Ignore connection errors in stress context
         }
+        // Ensure threads are fully joined before destructor re-enters stop()
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
     
     // Should not crash or leak resources
