@@ -30,6 +30,9 @@
 #include <functional>
 #include <variant>
 #include <optional>
+#include <string>
+#include <vector>
+#include <cstdint>
 
 namespace kraken {
 
@@ -41,7 +44,7 @@ class SubscriptionImpl;
 // Internal Message Type (optimized with std::variant)
 //------------------------------------------------------------------------------
 
-enum class MessageType {
+enum class MessageType : std::uint8_t {
     Ticker,
     Trade,
     Book,

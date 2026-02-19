@@ -1,5 +1,7 @@
 #include "kraken/subscription.hpp"
 #include "internal/client_impl.hpp"
+#include <vector>
+#include <string>
 
 namespace kraken {
 

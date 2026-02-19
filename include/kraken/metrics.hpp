@@ -8,7 +8,8 @@
 
 #include "core/types.hpp"
 #include <chrono>
-#include <atomic>
+#include <cstdint>
+#include <cstddef>
 #include <sstream>
 #include <iomanip>
 

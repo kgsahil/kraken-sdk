@@ -10,8 +10,7 @@
 
 namespace kraken {
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity)
-void KrakenClient::Impl::io_loop() {
+void KrakenClient::Impl::io_loop() { // NOLINT(readability-function-cognitive-complexity)
     while (!stop_requested_) {
         if (!connection_ || !connection_->is_open()) {
             if (!stop_requested_) {
