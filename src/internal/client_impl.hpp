@@ -55,9 +55,15 @@ enum class MessageType {
     Heartbeat
 };
 
-// Empty types for control messages
-struct SubscribedMsg {};
-struct UnsubscribedMsg {};
+// Control message types
+struct SubscribedMsg {
+    std::string channel;                  ///< e.g., "ticker", "book"
+    std::vector<std::string> symbols;     ///< e.g., {"BTC/USD"}
+};
+struct UnsubscribedMsg {
+    std::string channel;
+    std::vector<std::string> symbols;
+};
 struct HeartbeatMsg {};
 
 // Variant holding only one message type at a time (memory optimization)
@@ -204,6 +210,7 @@ public:
     void on_balance(BalanceCallback callback);      ///< Private: balance updates
     void on_error(ErrorCallback callback);
     void on_connection_state(ConnectionStateCallback callback);
+    void on_subscribed(SubscribedCallback callback);
     
     //--- Connection ---
     void connect();
@@ -301,6 +308,7 @@ private:
     BalanceCallback balance_callback_;      ///< Private: balances
     ErrorCallback error_callback_;
     ConnectionStateCallback state_callback_;
+    SubscribedCallback subscribed_callback_;  ///< Notified when server confirms subscription
     
     // Subscriptions
     std::unordered_map<int, std::shared_ptr<SubscriptionImpl>> subscriptions_;
@@ -315,6 +323,8 @@ private:
     std::atomic<uint64_t> msg_processed_{0};
     std::atomic<uint64_t> msg_dropped_{0};
     std::atomic<int64_t> latency_max_us_{0};
+    std::atomic<uint64_t> heartbeats_received_{0};
+    std::atomic<int64_t> last_heartbeat_time_{0};  ///< steady_clock nanos since epoch
     std::chrono::steady_clock::time_point start_time_;
     
     // Reconnection with exponential backoff
@@ -389,6 +399,12 @@ public:
     /// @brief Check if subscription is paused
     bool is_paused() const { return paused_; }
     
+    /// @brief Check if subscription is confirmed by server
+    bool is_confirmed() const { return confirmed_; }
+    
+    /// @brief Mark subscription as confirmed by server
+    void set_confirmed(bool c) { confirmed_ = c; }
+    
     /// @brief Get subscription channel
     Channel channel() const { return channel_; }
     
@@ -411,6 +427,7 @@ private:
     int depth_ = 10;
     bool active_ = true;
     bool paused_ = false;
+    bool confirmed_ = false;  ///< Set to true when server ack arrives
     mutable std::mutex mutex_;
     
     // Type-safe callbacks - no void* needed

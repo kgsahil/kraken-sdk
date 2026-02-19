@@ -20,8 +20,9 @@ public:
     Channel channel() const { return impl_->channel(); }
     std::vector<std::string> symbols() const { return impl_->symbols(); }
     int id() const { return impl_->id(); }
+    bool is_confirmed() const { return impl_->is_confirmed(); }
     
-    Impl(std::shared_ptr<SubscriptionImpl> impl) : impl_(std::move(impl)) {}
+    explicit Impl(std::shared_ptr<SubscriptionImpl> impl) : impl_(std::move(impl)) {}
     
 private:
     std::shared_ptr<SubscriptionImpl> impl_;
@@ -82,6 +83,10 @@ std::vector<std::string> Subscription::symbols() const {
 
 int Subscription::id() const {
     return impl_ ? impl_->id() : -1;
+}
+
+bool Subscription::is_confirmed() const {
+    return impl_ && impl_->is_confirmed();
 }
 
 } // namespace kraken

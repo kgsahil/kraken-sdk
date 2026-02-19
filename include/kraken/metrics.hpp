@@ -23,6 +23,8 @@ struct Metrics {
     size_t queue_depth = 0;            ///< Current queue depth (approximate)
     ConnectionState connection_state = ConnectionState::Disconnected;  ///< Current connection state
     std::chrono::microseconds latency_max_us{0};  ///< Maximum processing latency observed
+    uint64_t heartbeats_received = 0;  ///< Total heartbeats received (filtered before queue)
+    std::chrono::milliseconds last_heartbeat_age{0};  ///< Time since last heartbeat
     std::chrono::steady_clock::time_point start_time;  ///< SDK start time
     
     /// @brief Calculate messages per second (approximate)
@@ -59,13 +61,15 @@ struct Metrics {
     std::string to_json() const {
         char buf[512];
         snprintf(buf, sizeof(buf),
-            R"({"messages_received":%llu,"messages_processed":%llu,"messages_dropped":%llu,"queue_depth":%zu,"connection_state":"%s","latency_max_us":%lld,"uptime_seconds":%lld,"msg_per_sec":%.2f})",
+            R"({"messages_received":%llu,"messages_processed":%llu,"messages_dropped":%llu,"queue_depth":%zu,"connection_state":"%s","latency_max_us":%lld,"heartbeats_received":%llu,"last_heartbeat_age_ms":%lld,"uptime_seconds":%lld,"msg_per_sec":%.2f})",
             static_cast<unsigned long long>(messages_received),
             static_cast<unsigned long long>(messages_processed),
             static_cast<unsigned long long>(messages_dropped),
             queue_depth,
             to_string(connection_state),
             static_cast<long long>(latency_max_us.count()),
+            static_cast<unsigned long long>(heartbeats_received),
+            static_cast<long long>(last_heartbeat_age.count()),
             static_cast<long long>(uptime().count()),
             messages_per_second());
         return std::string(buf);

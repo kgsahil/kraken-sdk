@@ -38,6 +38,17 @@ Metrics KrakenClient::Impl::get_metrics() const {
     }
     
     m.start_time = start_time_;
+    
+    // Heartbeat metrics (always from atomics — heartbeats are filtered before telemetry)
+    m.heartbeats_received = heartbeats_received_.load(std::memory_order_relaxed);
+    auto last_hb_nanos = last_heartbeat_time_.load(std::memory_order_relaxed);
+    if (last_hb_nanos > 0) {
+        auto now_nanos = std::chrono::steady_clock::now().time_since_epoch().count();
+        auto age_nanos = now_nanos - last_hb_nanos;
+        m.last_heartbeat_age = std::chrono::duration_cast<std::chrono::milliseconds>(
+            std::chrono::nanoseconds(age_nanos));
+    }
+    
     return m;
 }
 

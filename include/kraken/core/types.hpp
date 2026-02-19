@@ -438,6 +438,12 @@ using OwnTradeCallback = std::function<void(const OwnTrade&)>;
 /// @param balances Map of currency to balance
 using BalanceCallback = std::function<void(const std::unordered_map<std::string, Balance>&)>;
 
+/// @brief Callback for subscription confirmation
+/// @param channel The confirmed channel name (e.g., "ticker", "book")
+/// @param symbols The confirmed trading pairs
+using SubscribedCallback = std::function<void(const std::string& channel, 
+                                              const std::vector<std::string>& symbols)>;
+
 //------------------------------------------------------------------------------
 // Utility Functions
 //------------------------------------------------------------------------------

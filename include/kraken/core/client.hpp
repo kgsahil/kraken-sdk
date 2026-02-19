@@ -99,6 +99,11 @@ public:
     /// Set connection state callback
     void on_connection_state(ConnectionStateCallback callback);
     
+    /// Set subscription confirmation callback
+    /// @param callback Called when server confirms a subscription
+    ///                  with channel name and subscribed symbols
+    void on_subscribed(SubscribedCallback callback);
+    
     //--------------------------------------------------------------------------
     // Connection
     //--------------------------------------------------------------------------

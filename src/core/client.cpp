@@ -58,6 +58,10 @@ void KrakenClient::on_connection_state(ConnectionStateCallback callback) {
     impl_->on_connection_state(std::move(callback));
 }
 
+void KrakenClient::on_subscribed(SubscribedCallback callback) {
+    impl_->on_subscribed(std::move(callback));
+}
+
 //------------------------------------------------------------------------------
 // Connection
 //------------------------------------------------------------------------------

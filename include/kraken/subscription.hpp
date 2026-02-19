@@ -105,6 +105,10 @@ public:
     /// @return Unique subscription identifier
     int id() const;
     
+    /// @brief Check if server has confirmed this subscription
+    /// @return true if server ack received, false if still pending
+    bool is_confirmed() const;
+    
 private:
     friend class KrakenClient;
     

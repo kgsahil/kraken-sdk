@@ -257,10 +257,31 @@ Message parse_message(const std::string& raw_json) {
     if (method == "subscribe" || method == "unsubscribe") {
         if (doc.HasMember("success") && doc["success"].IsBool()) {
             if (doc["success"].GetBool()) {
-                msg.type = (method == "subscribe") ? 
-                    MessageType::Subscribed : MessageType::Unsubscribed;
-                msg.data = (method == "subscribe") ? 
-                    MessageData{SubscribedMsg{}} : MessageData{UnsubscribedMsg{}};
+                // Extract channel and symbols from response
+                std::string sub_channel;
+                std::vector<std::string> sub_symbols;
+                
+                if (doc.HasMember("result") && doc["result"].IsObject()) {
+                    const auto& result = doc["result"];
+                    sub_channel = get_string(result, "channel");
+                    if (result.HasMember("symbol") && result["symbol"].IsString()) {
+                        sub_symbols.emplace_back(result["symbol"].GetString());
+                    } else if (result.HasMember("symbol") && result["symbol"].IsArray()) {
+                        for (const auto& s : result["symbol"].GetArray()) {
+                            if (s.IsString()) {
+                                sub_symbols.emplace_back(s.GetString());
+                            }
+                        }
+                    }
+                }
+                
+                if (method == "subscribe") {
+                    msg.type = MessageType::Subscribed;
+                    msg.data = SubscribedMsg{sub_channel, std::move(sub_symbols)};
+                } else {
+                    msg.type = MessageType::Unsubscribed;
+                    msg.data = UnsubscribedMsg{sub_channel, std::move(sub_symbols)};
+                }
             } else {
                 // Check if error is rate limit or authentication related
                 std::string error_msg = get_string(doc, "error", "Subscription failed");
