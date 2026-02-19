@@ -1,0 +1,119 @@
+{
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "wsl-debug",
+            "displayName": "WSL Debug",
+            "description": "Build with GCC on WSL Ubuntu (Debug)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "installDir": "${sourceDir}/out/install/${presetName}",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_STANDARD": "17",
+                "KRAKEN_BUILD_TESTS": "ON",
+                "KRAKEN_BUILD_EXAMPLES": "ON",
+                "KRAKEN_BUILD_TOOLS": "ON"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "Linux"
+                    ],
+                    "forceWSL1Toolset": false
+                },
+                "microsoft.com/VisualStudioRemoteSettings/CMake/2.0": {
+                    "sourceDir": "$env{HOME}/.vs/${sourceDirName}",
+                    "copyBuildOutput": true,
+                    "copyOptimizations": {
+                        "useOptimizations": "rsync"
+                    }
+                }
+            }
+        },
+        {
+            "name": "wsl-release",
+            "displayName": "WSL Release",
+            "description": "Build with GCC on WSL Ubuntu (Release)",
+            "inherits": "wsl-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "KRAKEN_BUILD_TESTS": "OFF"
+            }
+        },
+        {
+            "name": "linux-debug",
+            "displayName": "Linux Debug",
+            "description": "Build with GCC on native Linux (Debug)",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_STANDARD": "17",
+                "KRAKEN_BUILD_TESTS": "ON",
+                "KRAKEN_BUILD_EXAMPLES": "ON",
+                "KRAKEN_BUILD_TOOLS": "ON"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "linux-release",
+            "displayName": "Linux Release",
+            "description": "Build with GCC on native Linux (Release)",
+            "inherits": "linux-debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "KRAKEN_BUILD_TESTS": "OFF"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "wsl-debug-build",
+            "configurePreset": "wsl-debug"
+        },
+        {
+            "name": "wsl-release-build",
+            "configurePreset": "wsl-release"
+        },
+        {
+            "name": "linux-debug-build",
+            "configurePreset": "linux-debug"
+        },
+        {
+            "name": "linux-release-build",
+            "configurePreset": "linux-release"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "wsl-debug-test",
+            "configurePreset": "wsl-debug",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "timeout": 60
+            }
+        },
+        {
+            "name": "linux-debug-test",
+            "configurePreset": "linux-debug",
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "timeout": 60
+            }
+        }
+    ]
+}
