@@ -52,6 +52,11 @@ void KrakenClient::Impl::on_connection_state(ConnectionStateCallback callback) {
     state_callback_ = std::move(callback);
 }
 
+void KrakenClient::Impl::on_subscribed(SubscribedCallback callback) {
+    std::unique_lock lock(callbacks_mutex_);
+    subscribed_callback_ = std::move(callback);
+}
+
 void KrakenClient::Impl::safe_invoke_error_callback(ErrorCode code, 
                                                      const std::string& message,
                                                      const std::string& details) {

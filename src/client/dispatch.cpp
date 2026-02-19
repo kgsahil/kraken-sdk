@@ -40,6 +40,22 @@ void KrakenClient::Impl::io_loop() {
                 telemetry_->metrics().increment_messages_received(channel);
             }
             
+            // Filter heartbeats BEFORE the queue — saves SPSC slots for real data
+            if (msg.type == MessageType::Heartbeat) {
+                heartbeats_received_.fetch_add(1, std::memory_order_relaxed);
+                last_heartbeat_time_.store(
+                    recv_time.time_since_epoch().count(),
+                    std::memory_order_relaxed);
+                continue;
+            }
+            
+            // Handle subscription acks in I/O thread (don't waste queue slots)
+            if (msg.type == MessageType::Subscribed || 
+                msg.type == MessageType::Unsubscribed) {
+                dispatch(msg);
+                continue;
+            }
+            
             // Process message: either via queue or directly
             if (queue_) {
                 // Queue mode: push to queue for dispatcher thread
@@ -242,6 +258,48 @@ void KrakenClient::Impl::dispatch(Message& msg) {
                         error_callback_(msg.get<Error>());
                     } catch (...) {
                         // Error callback threw - ignore to prevent crash
+                    }
+                }
+                break;
+                
+            case MessageType::Subscribed:
+                if (msg.holds<SubscribedMsg>()) {
+                    const auto& sub_msg = msg.get<SubscribedMsg>();
+                    
+                    // Update matching subscription's confirmed state
+                    {
+                        std::lock_guard<std::mutex> sub_lock(subscriptions_mutex_);
+                        for (auto& [id, sub] : subscriptions_) {
+                            if (sub->is_active() && !sub->is_confirmed() &&
+                                to_string(sub->channel()) == sub_msg.channel) {
+                                sub->set_confirmed(true);
+                                break;  // One ack per message
+                            }
+                        }
+                    }
+                    
+                    // Invoke user callback if set
+                    if (subscribed_callback_) {
+                        safe_invoke_callback(subscribed_callback_, 
+                                           sub_msg.channel, sub_msg.symbols);
+                    }
+                }
+                break;
+                
+            case MessageType::Unsubscribed:
+                if (msg.holds<UnsubscribedMsg>()) {
+                    const auto& unsub_msg = msg.get<UnsubscribedMsg>();
+                    
+                    // Update matching subscription's confirmed state
+                    {
+                        std::lock_guard<std::mutex> sub_lock(subscriptions_mutex_);
+                        for (auto& [id, sub] : subscriptions_) {
+                            if (sub->is_confirmed() &&
+                                to_string(sub->channel()) == unsub_msg.channel) {
+                                sub->set_confirmed(false);
+                                break;
+                            }
+                        }
                     }
                 }
                 break;
