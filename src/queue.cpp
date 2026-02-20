@@ -37,7 +37,9 @@ T* DefaultMessageQueue<T>::front() {
 
 template<typename T>
 void DefaultMessageQueue<T>::pop() {
-    if (impl_) impl_->queue_.pop();
+    if (impl_ && impl_->queue_.front() != nullptr) {
+        impl_->queue_.pop();
+    }
 }
 
 template<typename T>
