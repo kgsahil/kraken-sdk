@@ -349,5 +349,50 @@ void KrakenClient::Impl::dispatch(Message& msg) {
     }
 }
 
+//------------------------------------------------------------------------------
+// Replay Engine Implementation
+//------------------------------------------------------------------------------
+
+template<typename T>
+void KrakenClient::Impl::inject_internal(MessageType type, const char* channel, const std::string& symbol, const T& data) {
+    Message msg;
+    msg.type = type;
+    msg.data = data;
+    msg.receive_time = std::chrono::steady_clock::now();
+    msg.channel = channel;
+    msg.symbol = symbol;
+    
+    if (queue_) {
+        if (queue_->try_push(std::move(msg))) {
+            queue_cv_.notify_one();
+        } else {
+            msg_dropped_.fetch_add(1, std::memory_order_relaxed);
+            if (telemetry_) {
+                telemetry_->metrics().increment_messages_dropped();
+            }
+            safe_invoke_error_callback(ErrorCode::QueueOverflow, "Replay engine queue overflow", "");
+        }
+    } else {
+        // Direct execution on the calling thread
+        dispatch(msg);
+        msg_processed_.fetch_add(1, std::memory_order_relaxed);
+        if (telemetry_) {
+            telemetry_->metrics().increment_messages_processed();
+        }
+    }
+}
+
+void KrakenClient::Impl::inject_ticker(const Ticker& ticker) {
+    inject_internal(MessageType::Ticker, "ticker", ticker.symbol, ticker);
+}
+
+void KrakenClient::Impl::inject_trade(const Trade& trade) {
+    inject_internal(MessageType::Trade, "trade", trade.symbol, trade);
+}
+
+void KrakenClient::Impl::inject_book(const OrderBook& book) {
+    inject_internal(MessageType::Book, "book", book.symbol, book);
+}
+
 } // namespace kraken
 

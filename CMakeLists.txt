@@ -183,6 +183,7 @@ if(KRAKEN_BUILD_EXAMPLES)
     add_example(data_collector)
     add_example(trading_bot)
     add_example(web_backend)
+    add_example(offline_replay)
 endif()
 
 # Tools
