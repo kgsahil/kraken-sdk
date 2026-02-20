@@ -161,11 +161,11 @@ void Connection::close() {
     if (!was_open) return;  // Already closed
     
     try {
-        // Check if WebSocket is actually open before trying to close
-        if (ws_->is_open()) {
+        // Close underlying socket to interrupt blocking reads immediately
+        // Note: ws_->close() is not thread-safe if read() is blocking in another thread
+        if (ws_) {
             beast::error_code ec;
-            ws_->close(websocket::close_code::normal, ec);
-            // Ignore errors during close (connection might already be closed)
+            beast::get_lowest_layer(*ws_).close(ec);
         }
     } catch (...) {
         // Ignore all exceptions during close

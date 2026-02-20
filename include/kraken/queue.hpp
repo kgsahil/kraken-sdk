@@ -28,11 +28,15 @@ class MessageQueue {
 public:
     virtual ~MessageQueue() = default;
 
-    // Interface should not be copyable or movable
+protected:
+    MessageQueue() = default;
+
+public:
+    // Interface should not be copyable, but movable
     MessageQueue(const MessageQueue&) = delete;
     MessageQueue& operator=(const MessageQueue&) = delete;
-    MessageQueue(MessageQueue&&) = delete;
-    MessageQueue& operator=(MessageQueue&&) = delete;
+    MessageQueue(MessageQueue&&) = default;
+    MessageQueue& operator=(MessageQueue&&) = default;
     
     /// Try to push an element (non-blocking)
     /// @param value The value to push

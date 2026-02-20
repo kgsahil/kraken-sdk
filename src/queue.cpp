@@ -25,21 +25,24 @@ DefaultMessageQueue<T>::DefaultMessageQueue(size_t capacity)
 
 template<typename T>
 bool DefaultMessageQueue<T>::try_push(T value) {
+    if (!impl_) return false;
     return impl_->queue_.try_push(std::move(value));
 }
 
 template<typename T>
 T* DefaultMessageQueue<T>::front() {
+    if (!impl_) return nullptr;
     return impl_->queue_.front();
 }
 
 template<typename T>
 void DefaultMessageQueue<T>::pop() {
-    impl_->queue_.pop();
+    if (impl_) impl_->queue_.pop();
 }
 
 template<typename T>
 size_t DefaultMessageQueue<T>::size() const {
+    if (!impl_) return 0;
     return impl_->queue_.size();
 }
 
