@@ -46,10 +46,12 @@ public:
     /// @param price_threshold Price breakout level
     /// @param volume_multiplier Volume spike multiplier (default: 2.0)
     /// @return Composite strategy combining price and volume conditions
+    // NOLINTBEGIN(bugprone-easily-swappable-parameters)
     static std::shared_ptr<CompositeStrategy> breakout(
         const std::string& symbol,
         double price_threshold,
         double volume_multiplier = 2.0) {
+    // NOLINTEND(bugprone-easily-swappable-parameters)
         auto price = PriceAlert::Builder()
             .symbol(symbol)
             .above(price_threshold)
@@ -89,13 +91,15 @@ public:
             double min_liquidity_;
             
         public:
-            SupportStrategy(const std::string& sym, double support, double tol, double liq)
-                : symbol_(sym), support_level_(support), tolerance_(tol), min_liquidity_(liq) {}
+            // NOLINTBEGIN(bugprone-easily-swappable-parameters)
+            SupportStrategy(std::string sym, double support, double tol, double liq)
+                : symbol_(std::move(sym)), support_level_(support), tolerance_(tol), min_liquidity_(liq) {}
+            // NOLINTEND(bugprone-easily-swappable-parameters)
             
-            bool check(const Ticker&) override { return false; }
-            bool check(const OrderBook&) override { return false; }
-            bool check(const Trade&) override { return false; }
-            bool check(const OHLC&) override { return false; }
+            bool check(const Ticker& /*unused*/) override { return false; }
+            bool check(const OrderBook& /*unused*/) override { return false; }
+            bool check(const Trade& /*unused*/) override { return false; }
+            bool check(const OHLC& /*unused*/) override { return false; }
             
             bool check(const Ticker& ticker, const OrderBook& book) override {
                 if (ticker.symbol != symbol_) return false;
@@ -146,13 +150,15 @@ public:
             double min_liquidity_;
             
         public:
-            ResistanceStrategy(const std::string& sym, double resistance, double tol, double liq)
-                : symbol_(sym), resistance_level_(resistance), tolerance_(tol), min_liquidity_(liq) {}
+            // NOLINTBEGIN(bugprone-easily-swappable-parameters)
+            ResistanceStrategy(std::string sym, double resistance, double tol, double liq)
+                : symbol_(std::move(sym)), resistance_level_(resistance), tolerance_(tol), min_liquidity_(liq) {}
+            // NOLINTEND(bugprone-easily-swappable-parameters)
             
-            bool check(const Ticker&) override { return false; }
-            bool check(const OrderBook&) override { return false; }
-            bool check(const Trade&) override { return false; }
-            bool check(const OHLC&) override { return false; }
+            bool check(const Ticker& /*unused*/) override { return false; }
+            bool check(const OrderBook& /*unused*/) override { return false; }
+            bool check(const Trade& /*unused*/) override { return false; }
+            bool check(const OHLC& /*unused*/) override { return false; }
             
             bool check(const Ticker& ticker, const OrderBook& book) override {
                 if (ticker.symbol != symbol_) return false;

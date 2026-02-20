@@ -87,10 +87,10 @@ TEST_F(QueueTest, SizeTracking) {
     
     EXPECT_EQ(queue.size(), 0);
     
-    queue.try_push(1);
+    ASSERT_TRUE(queue.try_push(1));
     EXPECT_GE(queue.size(), 1);
     
-    queue.try_push(2);
+    ASSERT_TRUE(queue.try_push(2));
     EXPECT_GE(queue.size(), 2);
     
     queue.pop();

@@ -70,7 +70,7 @@ struct Metrics {
             << ",\"messages_processed\":" << messages_processed
             << ",\"messages_dropped\":" << messages_dropped
             << ",\"queue_depth\":" << queue_depth
-            << ",\"connection_state\":\"" << to_string(connection_state) << "\""
+            << R"(,"connection_state":")" << to_string(connection_state) << "\""
             << ",\"latency_max_us\":" << latency_max_us.count()
             << ",\"heartbeats_received\":" << heartbeats_received
             << ",\"last_heartbeat_age_ms\":" << last_heartbeat_age.count()
