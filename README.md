@@ -171,6 +171,26 @@ client.subscribe_balances();
 
 📖 **Learn more:** [Connection Configuration](docs/ENVIRONMENT_VARIABLES.md#connection-settings) | [Security Settings](docs/ENVIRONMENT_VARIABLES.md#security-settings)
 
+### 🔌 **Offline Mode & Replay Engine**
+- **Infrastructure-as-Code Topologies** - Build distributed P1/P2/P3 architectures.
+- **DataSource Abstraction** - Disable WebSockets and inject data from Aeron IPC, Redpanda, or Kafka.
+- **Deterministic Backtesting** - Feed historical order book and trade data directly into the Strategy Engine.
+
+```cpp
+auto config = kraken::ClientConfig::Builder()
+    .offline_mode(true)
+    .use_queue(false) // Optimized for direct-call execution paths
+    .build();
+
+kraken::KrakenClient client(config);
+client.run(); // Initializes state without networking
+
+// Inject market data directly into the SDK's internal loop
+client.get_replay_engine().inject_ticker(historical_ticker);
+```
+
+📖 **Learn more:** [Offline Replay Guide](docs/OFFLINE_REPLAY.md)
+
 ### 🛠️ **Production-Ready Design**
 - **PIMPL Pattern** - ABI stability, hide implementation dependencies
 - **Builder Pattern** - Fluent, self-documenting configuration
@@ -470,6 +490,7 @@ See [docs/ENVIRONMENT_VARIABLES.md](docs/ENVIRONMENT_VARIABLES.md) for all confi
 ./dashboard      # Live performance dashboard with metrics
 ./orderbook      # Order book with CRC32 checksum validation
 ./telemetry      # OpenTelemetry integration demo
+./offline_replay # Offline strategy execution and data injection
 ```
 
 ### Real-World Applications
@@ -665,6 +686,7 @@ kraken-sdk/
 - **[Using the Strategy Engine](docs/STRATEGY_ENGINE.md)** - Guide to creating and configuring strategies
 - **[Configuration Guide](docs/ENVIRONMENT_VARIABLES.md)** - All environment variables and settings
 - **[Architecture & Analysis](docs/PROJECT_ANALYSIS.md)** - Why this SDK is production-ready
+- **[Offline Replay Hub](docs/OFFLINE_REPLAY.md)** - Guide to IaC topologies and data injection
 - **[OpenTelemetry](docs/OTEL_STATUS.md)** - Monitoring and observability
 - **[Performance](docs/BENCHMARKS.md)** - Detailed benchmark results
 
