@@ -101,6 +101,11 @@ ClientConfig::Builder& ClientConfig::Builder::use_queue(bool enable) {
     return *this;
 }
 
+ClientConfig::Builder& ClientConfig::Builder::offline_mode(bool offline) {
+    config_.offline_mode_ = offline;
+    return *this;
+}
+
 // Legacy methods (deprecated)
 ClientConfig::Builder& ClientConfig::Builder::reconnect_attempts(int attempts) {
     legacy_attempts_ = attempts;

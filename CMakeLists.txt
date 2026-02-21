@@ -183,6 +183,7 @@ if(KRAKEN_BUILD_EXAMPLES)
     add_example(data_collector)
     add_example(trading_bot)
     add_example(web_backend)
+    add_example(offline_replay)
 endif()
 
 # Tools
@@ -276,6 +277,7 @@ if(KRAKEN_BUILD_TESTS)
     add_kraken_test(test_connection_config)
     add_kraken_test(test_stress_failure)
     add_kraken_test(test_strategy_advanced)
+    add_kraken_test(test_offline_replay)
 endif()
 
 # Installation

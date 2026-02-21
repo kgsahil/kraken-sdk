@@ -24,6 +24,26 @@
 namespace kraken {
 
 struct Telemetry;
+class KrakenClient; // Forward declaration
+
+/// @brief Replay engine for injecting data in offline mode
+/// 
+/// Allows users to inject market data directly into the SDK's internal
+/// dispatch loop. Used primarily for backtesting, Machine Learning,
+/// or feeding data from an external IPC like Aeron when offline_mode is true.
+class ReplayEngine {
+public:
+    virtual ~ReplayEngine() = default;
+    
+    /// @brief Inject a ticker into the strategy engine and callbacks
+    virtual void inject_ticker(const Ticker& ticker) = 0;
+    
+    /// @brief Inject a trade into the strategy engine and callbacks
+    virtual void inject_trade(const Trade& trade) = 0;
+    
+    /// @brief Inject an order book into the strategy engine and callbacks
+    virtual void inject_book(const OrderBook& book) = 0;
+};
 
 /**
  * @brief Kraken WebSocket API client
@@ -234,6 +254,16 @@ public:
     /// Get the shared telemetry instance (for advanced usage like Prometheus scraping)
     /// @return Shared pointer to the Telemetry instance, or nullptr if not enabled
     std::shared_ptr<Telemetry> get_telemetry_instance() const;
+    
+    //--------------------------------------------------------------------------
+    // Replay Engine (Offline Mode)
+    //--------------------------------------------------------------------------
+    
+    /// @brief Get the replay engine for offline mode
+    /// 
+    /// Allows injecting data directly into the dispatch loop.
+    /// @return Reference to the ReplayEngine
+    ReplayEngine& get_replay_engine();
     
     //--------------------------------------------------------------------------
     // Data Snapshots (thread-safe)

@@ -87,6 +87,10 @@ public:
     ///         false if messages processed directly in I/O thread
     bool use_queue() const { return use_queue_; }
     
+    /// @brief Check if client is in offline mode (Replay/Strategy only)
+    /// @return true if WebSocket ingestion is disabled
+    bool offline_mode() const { return offline_mode_; }
+    
     /// @brief Get backoff strategy (cloned for thread safety)
     /// @return Unique pointer to cloned backoff strategy
     std::unique_ptr<BackoffStrategy> backoff_strategy() const {
@@ -160,6 +164,7 @@ private:
     size_t queue_capacity_ = 65536;
     bool validate_checksums_ = true;
     bool use_queue_ = true;  // Default: use queue (two-thread architecture)
+    bool offline_mode_ = false; // Default: online (connect to WebSockets)
     std::shared_ptr<BackoffStrategy> backoff_strategy_;
     ReconnectCallback on_reconnect_;
     SequenceTracker::Config gap_config_;
@@ -215,6 +220,16 @@ public:
     /// @param enable true to use queue (default), false to process directly
     /// @return Reference to this builder
     Builder& use_queue(bool enable);
+    
+    /// @brief Enable/disable offline mode (Replay/Strategy Node Mode)
+    /// 
+    /// If true, the client will NOT connect to Kraken WebSockets and will
+    /// not start the I/O thread. It expects data to be injected manually
+    /// via the ReplayEngine (e.g., from Aeron IPC or historical files).
+    /// 
+    /// @param offline true to disable IO networking
+    /// @return Reference to this builder
+    Builder& offline_mode(bool offline);
     
     /// @brief Enable/disable order book checksum validation
     /// @param validate true to validate CRC32 checksums (default: true)

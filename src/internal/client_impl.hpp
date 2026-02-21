@@ -192,7 +192,7 @@ private:
 /// and threading (I/O thread + dispatcher thread with SPSC queue).
 /// 
 /// @note This is an internal class. Users interact via KrakenClient.
-class KrakenClient::Impl {
+class KrakenClient::Impl : public ReplayEngine {
 public:
     explicit Impl(ClientConfig config);
     ~Impl();
@@ -239,6 +239,11 @@ public:
     size_t alert_count() const;
     std::vector<std::pair<int, std::string>> get_alerts() const;
     
+    //--- Replay Engine ---
+    void inject_ticker(const Ticker& ticker) override;
+    void inject_trade(const Trade& trade) override;
+    void inject_book(const OrderBook& book) override;
+    
     //--- Event Loop ---
     void run();
     void run_async();
@@ -264,6 +269,10 @@ private:
     void set_connection_state(ConnectionState state);
     void handle_reconnect();
     void send_pending_subscriptions();
+    
+    // Helper for replay injection
+    template<typename T>
+    void inject_internal(MessageType type, const char* channel, const std::string& symbol, const T& data);
     
     // Helper methods to reduce code duplication
     void safe_invoke_error_callback(ErrorCode code, const std::string& message, 

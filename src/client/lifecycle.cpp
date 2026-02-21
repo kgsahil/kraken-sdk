@@ -116,28 +116,36 @@ void KrakenClient::Impl::set_connection_state(ConnectionState state) {
 void KrakenClient::Impl::run() {
     if (running_) return;
     
-    // Connect if not connected
-    if (!is_connected()) {
-        connect();
+    if (!config_.offline_mode()) {
+        // Connect if not connected
+        if (!is_connected()) {
+            connect();
+        }
+        
+        // Send any pending subscriptions
+        send_pending_subscriptions();
     }
-    
-    // Send any pending subscriptions
-    send_pending_subscriptions();
     
     running_ = true;
     stop_requested_ = false;
     
-    // Start I/O thread
-    io_thread_ = std::thread([this]() { io_loop(); });
+    if (!config_.offline_mode()) {
+        // Start I/O thread
+        io_thread_ = std::thread([this]() { io_loop(); });
+    }
     
     // Run dispatcher in current thread (only if queue is enabled)
     if (queue_) {
         dispatcher_loop();
-    } else {
+    } else if (!config_.offline_mode()) {
         // Direct mode: I/O thread handles everything, just wait for it
         if (io_thread_.joinable()) {
             io_thread_.join();
         }
+    } else {
+        // Offline Mode with no queue
+        // The client is purely a state machine now. Simply return 
+        // so the user's thread can begin injecting data.
     }
     
     // Wait for I/O thread to finish
@@ -151,19 +159,23 @@ void KrakenClient::Impl::run() {
 void KrakenClient::Impl::run_async() {
     if (running_) return;
     
-    // Connect if not connected
-    if (!is_connected()) {
-        connect();
+    if (!config_.offline_mode()) {
+        // Connect if not connected
+        if (!is_connected()) {
+            connect();
+        }
+        
+        // Send any pending subscriptions
+        send_pending_subscriptions();
     }
-    
-    // Send any pending subscriptions
-    send_pending_subscriptions();
     
     running_ = true;
     stop_requested_ = false;
     
-    // Start I/O thread
-    io_thread_ = std::thread([this]() { io_loop(); });
+    if (!config_.offline_mode()) {
+        // Start I/O thread
+        io_thread_ = std::thread([this]() { io_loop(); });
+    }
     
     // Start dispatcher thread (only if queue is enabled)
     if (queue_) {
