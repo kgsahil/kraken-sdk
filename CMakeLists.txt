@@ -277,6 +277,7 @@ if(KRAKEN_BUILD_TESTS)
     add_kraken_test(test_connection_config)
     add_kraken_test(test_stress_failure)
     add_kraken_test(test_strategy_advanced)
+    add_kraken_test(test_offline_replay)
 endif()
 
 # Installation
